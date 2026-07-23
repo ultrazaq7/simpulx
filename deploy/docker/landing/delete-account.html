@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --bg:#F7FAF9; --bg-2:#FFFFFF; --card:#FFFFFF; --green-light:#1C8C7D; --amber:#C9871F; --text:#10201d; --muted:#5b6b67; --border:#e2e8e6; }
+        :root { --bg:#F7FAF9; --bg-2:#FFFFFF; --card:#FFFFFF; --green:#0E5B54; --green-light:#1C8C7D; --amber:#C9871F; --text:#10201d; --muted:#5b6b67; --border:#e2e8e6; --danger:#DC2626; --danger-bg:#FEF2F2; --danger-border:#FECACA; }
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background: var(--bg); color: var(--text); line-height: 1.6;
@@ -35,7 +35,7 @@
             position: relative; z-index: 1; max-width: 520px; width: 100%;
             background: var(--card); border: 1px solid var(--border);
             border-radius: 16px; padding: 48px 40px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            box-shadow: 0 18px 44px rgba(12,22,20,0.10);
         }
 
         .header { text-align: center; margin-bottom: 32px; }
@@ -50,13 +50,13 @@
             background: var(--danger-bg); border: 1px solid var(--danger-border);
             border-radius: 10px; padding: 16px 20px; margin-bottom: 24px;
         }
-        .warning-box h3 { font-size: 13px; font-weight: 600; color: #fca5a5; margin-bottom: 8px; }
-        .warning-box ul { font-size: 13px; color: #fecaca; margin: 0; padding-left: 20px; line-height: 1.8; }
+        .warning-box h3 { font-size: 13px; font-weight: 600; color: #B91C1C; margin-bottom: 8px; }
+        .warning-box ul { font-size: 13px; color: #7F1D1D; margin: 0; padding-left: 20px; line-height: 1.8; }
 
         .form-group { margin-bottom: 16px; }
         label { display: block; font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
         input, textarea {
-            width: 100%; padding: 12px 14px; background: rgba(255,255,255,0.05);
+            width: 100%; padding: 12px 14px; background: #fff;
             border: 1px solid var(--border); border-radius: 8px; color: var(--text);
             font-size: 14px; outline: none; font-family: inherit; transition: border-color .2s;
         }
@@ -75,7 +75,7 @@
 
         .success-state { display: none; text-align: center; padding: 20px 0; }
         .success-icon {
-            width: 64px; height: 64px; border-radius: 50%; background: rgba(45,139,115,0.2);
+            width: 64px; height: 64px; border-radius: 50%; background: rgba(28,140,125,0.14);
             display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;
         }
         .success-state h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
@@ -144,7 +144,7 @@
             <div id="success-state" class="success-state">
                 <div class="success-icon">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                        <path d="M20 6L9 17L4 12" stroke="#3FBE9E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M20 6L9 17L4 12" stroke="#1C8C7D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                 </div>
                 <h2>Request Submitted</h2>

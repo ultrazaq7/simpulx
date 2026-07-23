@@ -32,7 +32,8 @@
         .nav-inner { display: flex; align-items: center; justify-content: space-between; max-width: 1160px; margin: 0 auto; padding: 0 24px; }
         .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
         .nav-brand img { width: 30px; height: 30px; border-radius: 8px; }
-        .nav-links { display: flex; align-items: center; gap: 30px; }
+        .nav-links { display: flex; align-items: center; gap: 30px; margin-left: auto; }
+        .nav-inner > .lang-tg { margin-left: 18px; }
         .nav-links a { font-size: 14px; color: var(--muted); font-weight: 500; transition: color .2s; }
         .nav-links a:hover { color: var(--ink); }
         /* Tombol di dalam nav: .nav-links a lebih spesifik dari .btn-primary,
@@ -393,8 +394,8 @@ footer.site .f-bottom { border-top: 1px solid rgba(255,255,255,.08); padding: 22
   .dd-item { padding: 9px 10px; }
   .dd-item .ic2 { width: 30px; height: 30px; }
   .nav-links .btn { width: 100%; justify-content: center; margin-top: 6px; }
-  .lang-tg { align-self: stretch; justify-content: center; margin-top: 8px; }
-  .lang-tg .sg { flex: 1; text-align: center; padding: 10px 12px; font-size: 13px; }
+  .nav-inner > .lang-tg { margin-left: auto; margin-right: 12px; }
+  .lang-tg .sg { padding: 4px 9px; font-size: 11px; }
 }
 
 /* ── Dropdown panel: jangkar kiri + clamp viewport (menghindari kepotong) ── */
