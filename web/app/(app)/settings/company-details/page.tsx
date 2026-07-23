@@ -59,7 +59,7 @@ function tzOffset(tz: string): string {
   } catch { return ""; }
 }
 
-type Sub = { package_name: string; status: string; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number };
+type Sub = { package_name: string; status: string; renewal_date?: string | null; quotas: Record<string, number>; used_users: number; used_simpuler_credits: number; used_custom_fields: number };
 const INPUT = "w-full h-10 px-3 rounded-lg border border-input bg-background text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20";
 const LBL = "block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5";
 
@@ -263,13 +263,19 @@ export default function GeneralSettingsPage() {
         <Section title={t("settings.subscription")}>
           {sub ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[15px] font-bold text-foreground capitalize">{sub.package_name}</span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-success/10 text-success capitalize">{sub.status}</span>
+                {sub.renewal_date && (
+                  <span className={cn("text-[12px] font-semibold tabular-nums",
+                    new Date(sub.renewal_date) < new Date() ? "text-destructive" : "text-muted-foreground")}>
+                    {t("settings.expires")}: {String(sub.renewal_date).slice(0, 10)}
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <QuotaRow label={t("settings.teamMembers")} used={sub.used_users} limit={sub.quotas?.users} />
-                <QuotaRow label={t("settings.simpulerCreditsThisMonth")} used={sub.used_simpuler_credits} limit={sub.quotas?.simpuler_credits} />
+                <QuotaRow label={t("settings.simpulerCredits")} used={sub.used_simpuler_credits} limit={sub.quotas?.simpuler_credits} />
                 <QuotaRow label={t("contacts.customFields")} used={sub.used_custom_fields} limit={sub.quotas?.custom_fields} />
               </div>
               <UsageDetail />
@@ -291,14 +297,14 @@ function UsageDetail() {
   const { t } = useI18n();
   const [data, setData] = useState<{
     daily: { date: string; replies: number }[];
-    by_campaign: { campaign: string; campaign_id: string; replies: number }[];
-    allocations: { campaign_id: string; allocated_credits: number; used_credits: number; remaining: number }[];
+    by_campaign: { campaign: string; campaign_id: string; allocated_credits: number; used_credits: number; remaining: number; replies: number }[];
   } | null>(null);
   useEffect(() => { api.subscriptionUsage().then(setData).catch(() => setData(null)); }, []);
 
   if (!data) return null;
-  const alloc = new Map(data.allocations.map((a) => [a.campaign_id, a]));
-  const totalMonth = data.by_campaign.reduce((s, c) => s + c.replies, 0);
+  // Share dihitung dari LEDGER kredit (angka yang sama dengan header dan tab
+  // Credits & Usage per campaign), bukan dari hitungan pesan.
+  const totalUsed = data.by_campaign.reduce((s, c) => s + c.used_credits, 0);
 
   return (
     <div className="space-y-4">
@@ -327,27 +333,24 @@ function UsageDetail() {
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30 border-b border-border">
                 <th className="px-3 py-1.5">{t("settings.campaign")}</th>
-                <th className="px-3 py-1.5 text-right">{t("settings.repliesThisMonth")}</th>
+                <th className="px-3 py-1.5 text-right">{t("settings.creditsUsed")}</th>
                 <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("settings.allocated")}</th>
                 <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("settings.remaining")}</th>
+                <th className="px-3 py-1.5 text-right hidden md:table-cell">{t("settings.repliesThisMonth")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {data.by_campaign.map((c) => {
-                const al = alloc.get(c.campaign_id);
-                const share = totalMonth > 0 ? Math.round((c.replies / totalMonth) * 100) : 0;
+                const share = totalUsed > 0 ? Math.round((c.used_credits / totalUsed) * 100) : 0;
                 return (
-                  <tr key={c.campaign_id || c.campaign}>
+                  <tr key={c.campaign_id}>
                     <td className="px-3 py-2 font-medium text-foreground">{c.campaign}
-                      <span className="ml-1.5 text-[11px] text-muted-foreground tabular-nums">{share}%</span>
+                      {share > 0 && <span className="ml-1.5 text-[11px] text-muted-foreground tabular-nums">{share}%</span>}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{c.replies}</td>
-                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">
-                      {al ? `${al.used_credits}/${al.allocated_credits}` : "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">
-                      {al ? al.remaining : "-"}
-                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{c.used_credits}</td>
+                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">{c.allocated_credits}</td>
+                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">{c.remaining}</td>
+                    <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell text-muted-foreground">{c.replies}</td>
                   </tr>
                 );
               })}

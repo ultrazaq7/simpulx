@@ -2423,6 +2423,78 @@ func (s *server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	s.proxyJSON(w, r.Context(), http.MethodPost, s.conversationURL+"/conversations/"+convID+"/assign", bodyBytes)
 }
 
+// POST /api/conversations/{id}/campaign — move this conversation (lead
+// instance) to another campaign, or detach it ('' / 'none'). A supervisory
+// action exactly like reassigning the agent, so it shares the assign_chats
+// gate. branch_id is cleared: a branch belongs to the previous campaign and
+// keeping it would leave the thread pointing into the wrong routing table.
+func (s *server) handleSetConversationCampaign(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	convID := r.PathValue("id")
+	if !s.guardConversation(w, r, convID) {
+		return
+	}
+	var b struct {
+		CampaignID string `json:"campaign_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	cid := strings.TrimSpace(b.CampaignID)
+	if cid == "none" {
+		cid = ""
+	}
+	campaignName := ""
+	if cid != "" {
+		if err := s.pool.QueryRow(r.Context(),
+			`SELECT name FROM campaigns WHERE id=$1::uuid AND organization_id=$2`,
+			cid, a.OrgID).Scan(&campaignName); err != nil {
+			http.Error(w, "campaign not found", http.StatusNotFound)
+			return
+		}
+		// One active conversation per (contact, campaign) — 0023. Pre-check so the
+		// user gets a sentence instead of a constraint name.
+		var clash bool
+		_ = s.pool.QueryRow(r.Context(),
+			`SELECT EXISTS(
+			   SELECT 1 FROM conversations c2
+			    WHERE c2.contact_id = (SELECT contact_id FROM conversations WHERE id=$1::uuid)
+			      AND c2.id <> $1::uuid AND c2.status <> 'closed' AND c2.campaign_id = $2::uuid)`,
+			convID, cid).Scan(&clash)
+		if clash {
+			http.Error(w, "this contact already has an active conversation in that campaign", http.StatusConflict)
+			return
+		}
+	} else {
+		var clash bool
+		_ = s.pool.QueryRow(r.Context(),
+			`SELECT EXISTS(
+			   SELECT 1 FROM conversations c2
+			    WHERE c2.contact_id = (SELECT contact_id FROM conversations WHERE id=$1::uuid)
+			      AND c2.id <> $1::uuid AND c2.status <> 'closed' AND c2.campaign_id IS NULL)`,
+			convID).Scan(&clash)
+		if clash {
+			http.Error(w, "this contact already has an active conversation without a campaign", http.StatusConflict)
+			return
+		}
+	}
+	tag, err := s.pool.Exec(r.Context(),
+		`UPDATE conversations SET campaign_id = NULLIF($3,'')::uuid, branch_id = NULL, updated_at = now()
+		  WHERE id=$1::uuid AND organization_id=$2`,
+		convID, a.OrgID, cid)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	s.audit(r.Context(), a, "moved_campaign", "conversation", convID, map[string]any{"campaign_id": cid, "campaign_name": campaignName})
+	writeJSON(w, map[string]any{"ok": true, "campaign_id": cid, "campaign_name": campaignName})
+}
+
 func (s *server) handleClose(w http.ResponseWriter, r *http.Request) {
 	convID := r.PathValue("id")
 	if !s.guardConversation(w, r, convID) {

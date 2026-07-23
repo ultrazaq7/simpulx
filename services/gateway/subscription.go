@@ -17,11 +17,16 @@ func (s *server) handleGetSubscription(w http.ResponseWriter, r *http.Request) {
 	// Lazy-ensure a row for orgs created after the migration.
 	_, _ = s.pool.Exec(r.Context(),
 		`INSERT INTO org_subscriptions (organization_id) VALUES ($1) ON CONFLICT (organization_id) DO NOTHING`, a.OrgID)
+	// used_simpuler_credits comes from the DEBIT LEDGER (campaign_credits), the
+	// same numbers the per-campaign Credits & Usage tab shows — it used to count
+	// bot messages this month instead, so the org header and the per-campaign
+	// tabs told different stories about the same thing.
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT os.package_name, os.status, os.renewal_date, os.quotas,
 		        (SELECT count(*) FROM users WHERE organization_id=$1 AND status='active') AS used_users,
-		        (SELECT count(*) FROM messages WHERE organization_id=$1 AND sender_type='bot'
-		           AND created_at >= date_trunc('month', now())) AS used_simpuler_credits,
+		        COALESCE((SELECT sum(cc.used_credits) FROM campaign_credits cc
+		                    JOIN campaigns c ON c.id = cc.campaign_id
+		                   WHERE c.organization_id=$1), 0) AS used_simpuler_credits,
 		        (SELECT count(*) FROM custom_fields WHERE organization_id=$1) AS used_custom_fields
 		   FROM org_subscriptions os WHERE os.organization_id=$1`, a.OrgID)
 	if err != nil {
@@ -237,27 +242,28 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// Split per campaign, this calendar month (same window as the header number).
-	// Replies in conversations that have no campaign are shown too — hiding them
-	// would make the split sum below the headline and look broken.
+	// One row per campaign with BOTH facts side by side: the credit ledger
+	// (used/allocated/remaining — the billing truth, identical to each
+	// campaign's Credits & Usage tab) and this month's AI replies (activity).
 	byCampaign, err := s.queryMaps(r.Context(),
-		`SELECT COALESCE(c.name, '(no campaign)') AS campaign,
-		        COALESCE(c.id::text, '') AS campaign_id,
-		        count(*)::int AS replies
-		   FROM messages m
-		   JOIN conversations cv ON cv.id = m.conversation_id
-		   LEFT JOIN campaigns c ON c.id = cv.campaign_id
-		  WHERE m.organization_id=$1 AND m.sender_type='bot'
-		    AND m.created_at >= date_trunc('month', now())
-		  GROUP BY 1, 2 ORDER BY count(*) DESC`, a.OrgID)
+		`SELECT c.id::text AS campaign_id, c.name AS campaign,
+		        COALESCE(cc.allocated_credits, 0) AS allocated_credits,
+		        COALESCE(cc.used_credits, 0) AS used_credits,
+		        COALESCE(cc.allocated_credits - cc.used_credits, 0) AS remaining,
+		        COALESCE(mm.replies, 0) AS replies
+		   FROM campaigns c
+		   LEFT JOIN campaign_credits cc ON cc.campaign_id = c.id
+		   LEFT JOIN LATERAL (
+		     SELECT count(*)::int AS replies
+		       FROM messages m JOIN conversations cv ON cv.id = m.conversation_id
+		      WHERE m.organization_id=$1 AND m.sender_type='bot'
+		        AND cv.campaign_id = c.id AND m.created_at >= date_trunc('month', now())
+		   ) mm ON true
+		  WHERE c.organization_id=$1
+		  ORDER BY COALESCE(cc.used_credits,0) DESC, c.name`, a.OrgID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	allocations, _ := s.queryMaps(r.Context(),
-		`SELECT c.id::text AS campaign_id, cc.allocated_credits, cc.used_credits,
-		        (cc.allocated_credits - cc.used_credits) AS remaining
-		   FROM campaign_credits cc JOIN campaigns c ON c.id = cc.campaign_id
-		  WHERE c.organization_id=$1`, a.OrgID)
-	writeJSON(w, map[string]any{"daily": daily, "by_campaign": byCampaign, "allocations": allocations})
+	writeJSON(w, map[string]any{"daily": daily, "by_campaign": byCampaign})
 }

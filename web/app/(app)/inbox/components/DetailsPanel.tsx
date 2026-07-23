@@ -101,13 +101,15 @@ interface DetailsPanelProps {
   messages?: Message[];
   channelName?: string; // real channel name (e.g. "Testing Channel"), not the type
   showAgent?: boolean;
+  campaigns?: { id: string; name: string }[];
+  onSetCampaign?: (campaignId: string) => void;
   agents?: Agent[];
   canAssign?: boolean;
   onReassign?: (agentId: string) => void;
   onUnassign?: () => void;
 }
 
-export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, onDeleteNote, messages, channelName, showAgent, agents, canAssign, onReassign, onUnassign }: DetailsPanelProps) {
+export default function DetailsPanel({ active, onClose, copyText, notes, onAddNote, onDeleteNote, messages, channelName, showAgent, agents, canAssign, onReassign, onUnassign, campaigns, onSetCampaign }: DetailsPanelProps) {
   const { t } = useI18n();
   const media = (messages || []).filter((m) => m.media_url && m.type !== "sticker"); // stickers are not attachments
   const mediaFiles = media.filter((m) => m.type === "image" || m.type === "video");
@@ -121,6 +123,8 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
   const [tagDraft, setTagDraft] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignQuery, setAssignQuery] = useState("");
+  const [campOpen, setCampOpen] = useState(false);
+  const [campQuery, setCampQuery] = useState("");
   useEffect(() => { setTags(active.tags ?? []); setTagOpen(false); setTagDraft(""); setAssignOpen(false); setAssignQuery(""); }, [active.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
@@ -324,6 +328,73 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
               </div>
             )}
 
+            {/* Campaign — persis di bawah Assigned agent, gaya dropdown yang sama:
+                admin/owner (assign_chats) bisa mindahin lead ke campaign lain. */}
+            {showAgent && (
+              <div className="mb-5 -mt-5">
+                <div className="flex gap-3 py-2 border-b border-border/50">
+                  <Hash className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{t("automation.campaign")}</p>
+                    {canAssign && onSetCampaign ? (
+                      <div className="relative">
+                        <button type="button" onClick={() => setCampOpen((v) => !v)} className="flex items-center gap-1 outline-none group">
+                          <span className={cn("text-xs font-semibold truncate", active.campaign_name ? "text-foreground" : "text-amber-700")}>
+                            {active.campaign_name || t("inbox.noCampaign")}
+                          </span>
+                          <ChevronDown className={cn("w-3 h-3 shrink-0 text-muted-foreground/60 transition-transform", campOpen && "rotate-180")} />
+                        </button>
+                        {campOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => { setCampOpen(false); setCampQuery(""); }} />
+                            <div className="absolute left-0 top-full mt-1 z-50 w-60 max-h-[340px] flex flex-col rounded-lg border border-border bg-popover shadow-xl animate-scale-in">
+                              <div className="p-2 border-b border-border shrink-0">
+                                <div className="relative">
+                                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                  <input autoFocus value={campQuery} onChange={(e) => setCampQuery(e.target.value)} placeholder={t("inbox.searchCampaign")}
+                                    className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+                                </div>
+                              </div>
+                              <div className="overflow-auto py-1 flex-1 min-h-0">
+                                {(() => {
+                                  const q = campQuery.trim().toLowerCase();
+                                  const matches = (campaigns || []).filter((c) => c.name.toLowerCase().includes(q));
+                                  if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">{t("inbox.noCampaigns")}</p>;
+                                  return matches.map((c) => (
+                                    <button key={c.id} type="button"
+                                      onClick={() => { onSetCampaign(c.id); setCampOpen(false); setCampQuery(""); }}
+                                      className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted outline-none", c.id === active.campaign_id ? "bg-primary/[0.04]" : "")}>
+                                      <Hash className={cn("w-3.5 h-3.5 shrink-0", c.id === active.campaign_id ? "text-primary" : "opacity-70")} />
+                                      <p className={cn("text-[13px] truncate flex-1", c.id === active.campaign_id ? "text-primary font-semibold" : "text-foreground/90")}>{c.name}</p>
+                                      {c.id === active.campaign_id && <Check className="w-3.5 h-3.5 shrink-0 text-primary" />}
+                                    </button>
+                                  ));
+                                })()}
+                                {active.campaign_id && (
+                                  <>
+                                    <div className="my-1 border-t border-border" />
+                                    <button type="button"
+                                      onClick={() => { onSetCampaign("none"); setCampOpen(false); setCampQuery(""); }}
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none">
+                                      <XCircle className="w-3.5 h-3.5 shrink-0" />{t("inbox.removeFromCampaign")}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <p className={cn("text-xs font-semibold truncate", active.campaign_name ? "text-foreground" : "text-amber-700")}>
+                        {active.campaign_name || t("inbox.noCampaign")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{t("components.customerDetails")}</p>
             <div className="mb-5">
               <DetailRow icon={User} label={t("account.name")} value={active.contact_name || "Unknown"} />
@@ -345,7 +416,6 @@ export default function DetailsPanel({ active, onClose, copyText, notes, onAddNo
                   <p className="text-xs font-semibold text-foreground truncate">{channelName || channelLabel(active.channel)}</p>
                 </div>
               </div>
-              {active.campaign_name && <DetailRow icon={Hash} label={t("automation.campaign")} value={active.campaign_name} />}
               <DetailRow icon={MessageSquare} label={t("automation.status")} value={humanize(active.status)} />
               <DetailRow icon={Clock} label={t("components.lastMessage")} value={active.last_message_at ? fmtDateTimeShort(active.last_message_at) : "No messages"} />
               {active.status === "snoozed" && active.snoozed_until && (

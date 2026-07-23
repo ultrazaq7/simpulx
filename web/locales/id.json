@@ -2319,5 +2319,7 @@
   "settings.campaign": "Campaign",
   "settings.repliesThisMonth": "Balasan AI",
   "settings.allocated": "Alokasi (terpakai/total)",
-  "settings.remaining": "Sisa"
+  "settings.remaining": "Sisa",
+  "settings.creditsUsed": "Kredit terpakai",
+  "settings.expires": "Berakhir"
 }

@@ -2319,5 +2319,7 @@
   "settings.campaign": "Campaign",
   "settings.repliesThisMonth": "AI replies",
   "settings.allocated": "Allocated (used/total)",
-  "settings.remaining": "Remaining"
+  "settings.remaining": "Remaining",
+  "settings.creditsUsed": "Credits used",
+  "settings.expires": "Expires"
 }
