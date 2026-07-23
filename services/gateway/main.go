@@ -280,6 +280,7 @@ func main() {
 
 	// Launch prerequisites: resolve geo, draft copy, suggest audience, preview.
 	mux.HandleFunc("GET /api/campaigns/{id}/ads/preview", s.requireAuth(s.campaignScoped(s.handleCampaignAdsPreview)))
+	mux.HandleFunc("GET /api/campaigns/{id}/ads/live", s.requireAuth(s.campaignScoped(s.handleCampaignAdsLive)))
 	mux.HandleFunc("GET /api/campaigns/{id}/ads/geo", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleCampaignAdsGeo))))
 	mux.HandleFunc("POST /api/campaigns/{id}/ads/geo", s.requireAuth(s.gate("manage_campaigns", s.campaignScoped(s.handleCampaignAdsGeoChoose))))
 	mux.HandleFunc("GET /api/campaigns/{id}/ads/copy", s.requireAuth(s.campaignScoped(s.handleListAdCopy)))

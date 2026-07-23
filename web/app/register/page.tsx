@@ -19,15 +19,9 @@ import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
 const t = fixedT("id");
 const i18n = t;
 
-// Semua paket berbayar fiturnya SAMA. Bedanya cuma jumlah seat: makin banyak
-// seat, harga per seat makin murah (volume discount). "Ads dikelola Simpulx"
-// itu add-on opsional, bukan pembeda paket.
-const ALL_FEATURES = [
-  "Semua fitur: inbox, AI, campaign, laporan",
-  "Bonus 200 kredit AI",
-  "AI nurture + follow-up penuh",
-  "Laporan iklan (Meta/TikTok/Google)",
-];
+// Bullet kartu mengikuti kartu pricing di landing (apex): kumulatif per tier.
+// Harga per seat tetap volume discount; "Ads dikelola Simpulx" itu add-on
+// opsional, bukan pembeda paket.
 const SIGNUP_TIERS = [
   {
     key: "trial", name: "Free Trial", price: 0, per: "7 hari",
@@ -39,19 +33,19 @@ const SIGNUP_TIERS = [
     key: "starter", name: "Starter", price: 200_000, per: "seat / bulan",
     credits: 200, highlight: false, minSeats: 1,
     tagline: "1 sampai 10 seat",
-    features: ALL_FEATURES,
+    features: ["200 kredit AI / pengguna", "Inbox tim + AI nurture", "Panggilan WhatsApp", "E-catalog & broadcast"],
   },
   {
     key: "growth", name: "Growth", price: 150_000, per: "seat / bulan",
     credits: 200, highlight: true, minSeats: 11,
     tagline: "11 sampai 50 seat, paling banyak dipilih",
-    features: ALL_FEATURES,
+    features: ["200 kredit AI / pengguna", "Semua fitur Starter", "Automation & lead scoring", "Analitik revenue lengkap"],
   },
   {
     key: "business", name: "Business", price: 100_000, per: "seat / bulan",
     credits: 200, highlight: false, minSeats: 51,
     tagline: "51 sampai 100 seat, termurah per seat",
-    features: ALL_FEATURES,
+    features: ["200 kredit AI / pengguna", "Semua fitur Growth", "Onboarding & prioritas support", "Top-up kredit AI fleksibel"],
   },
 ];
 
@@ -228,11 +222,6 @@ export default function RegisterPage() {
         <h1 className="text-[26px] sm:text-[32px] font-extrabold text-gray-900 tracking-tight">
           {menu === "signup" ? t("reg.headline") : t("reg.topupHeadline")}
         </h1>
-        <p className="text-[14.5px] text-gray-500 mt-2 max-w-xl mx-auto">
-          {menu === "signup"
-            ? t("reg.sub")
-            : t("reg.topupSub")}
-        </p>
       </div>
 
       {!pkg && (<>

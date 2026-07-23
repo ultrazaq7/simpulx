@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -34,10 +35,26 @@ type adsTarget struct {
 	metaCampaign string // campaigns.meta_campaign_id, set when WE created it
 }
 
-// resolveAdsTarget loads the campaign's managed ad account and decrypts its token.
+// resolveAdsTarget is resolveAdsAny plus the manage-mode requirement. Every
+// WRITE path (pause/resume/launch) goes through this one; read-only surfaces
+// (live status, creative previews) use resolveAdsAny, because reporting is what
+// a "read" account explicitly agreed to.
+func (s *server) resolveAdsTarget(ctx context.Context, orgID, campaignID string) (adsTarget, string, int) {
+	t, msg, code := s.resolveAdsAny(ctx, orgID, campaignID)
+	if msg != "" {
+		return t, msg, code
+	}
+	if t.accessMode != "manage" {
+		return t, "this ad account is connected for reporting only. Switch it to \"Manage ads\" in Channel & Integrations first.", http.StatusForbidden
+	}
+	return t, "", 0
+}
+
+// resolveAdsAny loads the campaign's ad account (either link path) and decrypts
+// its token, without requiring manage mode.
 // Returns a caller-safe message on failure: these strings surface in the UI, so
 // they say what to fix rather than leaking internals.
-func (s *server) resolveAdsTarget(ctx context.Context, orgID, campaignID string) (adsTarget, string, int) {
+func (s *server) resolveAdsAny(ctx context.Context, orgID, campaignID string) (adsTarget, string, int) {
 	var t adsTarget
 	var encToken string
 	// The account is resolved through EITHER link, in priority order: the explicit
@@ -67,9 +84,6 @@ func (s *server) resolveAdsTarget(ctx context.Context, orgID, campaignID string)
 		&t.extAccountID, &encToken, &t.accessMode, &t.metaCampaign)
 	if err != nil {
 		return t, "this campaign has no ad account connected for ads management", http.StatusConflict
-	}
-	if t.accessMode != "manage" {
-		return t, "this ad account is connected for reporting only. Switch it to \"Manage ads\" in Channel & Integrations first.", http.StatusForbidden
 	}
 	tok, err := decryptAdToken(encToken)
 	if err != nil || tok == "" {
@@ -304,4 +318,96 @@ func (s *server) handleCampaignAdsStatus(w http.ResponseWriter, r *http.Request)
 		"ads_status":      adsStatus,
 		"linked_ad_count": linked,
 	})
+}
+
+// GET /api/campaigns/{id}/ads/live — the linked ads as Meta sees them RIGHT NOW:
+// per-ad delivery status and creative thumbnail, plus one derived overall status.
+//
+// This is what makes the pause/resume control honest. Showing both buttons at
+// once forces the user to remember which state the ads are in; the button should
+// reflect Meta's live state, not the last thing we happened to write. Works for
+// "read" accounts too — seeing what runs is reporting, which they agreed to.
+func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	t, msg, code := s.resolveAdsAny(r.Context(), a.OrgID, r.PathValue("id"))
+	if msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+	ids, err := s.adObjectIDs(r.Context(), t)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	type liveAd struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Status    string `json:"status"`
+		Thumbnail string `json:"thumbnail"`
+	}
+	var ads []liveAd
+	var firstErr string
+	if len(ids) > 5 {
+		ids = ids[:5] // one Graph call per linked Meta campaign; cap the fan-out
+	}
+	for _, cid := range ids {
+		var payload struct {
+			Data []struct {
+				ID              string `json:"id"`
+				Name            string `json:"name"`
+				EffectiveStatus string `json:"effective_status"`
+				Creative        *struct {
+					ThumbnailURL string `json:"thumbnail_url"`
+				} `json:"creative"`
+			} `json:"data"`
+			Error *struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		u := fmt.Sprintf(
+			"https://graph.facebook.com/%s/%s/ads?fields=name,effective_status,creative.thumbnail_width(256).thumbnail_height(256){thumbnail_url}&limit=50&access_token=%s",
+			metaGraphVersion, cid, url.QueryEscape(t.token))
+		if err := metaGet(r.Context(), u, &payload); err != nil {
+			if firstErr == "" {
+				firstErr = err.Error()
+			}
+			continue
+		}
+		if payload.Error != nil {
+			if firstErr == "" {
+				firstErr = payload.Error.Message
+			}
+			continue
+		}
+		for _, ad := range payload.Data {
+			if ad.EffectiveStatus == "DELETED" || ad.EffectiveStatus == "ARCHIVED" {
+				continue
+			}
+			la := liveAd{ID: ad.ID, Name: ad.Name, Status: ad.EffectiveStatus}
+			if ad.Creative != nil {
+				la.Thumbnail = ad.Creative.ThumbnailURL
+			}
+			ads = append(ads, la)
+		}
+	}
+
+	// One overall status the toggle can key off: delivering if ANYTHING delivers.
+	overall := ""
+	for _, ad := range ads {
+		if ad.Status == "ACTIVE" {
+			overall = "active"
+			break
+		}
+	}
+	if overall == "" && len(ads) > 0 {
+		overall = "paused"
+		for _, ad := range ads {
+			if ad.Status == "PENDING_REVIEW" || ad.Status == "IN_PROCESS" {
+				overall = "pending_review"
+				break
+			}
+		}
+	}
+	writeJSON(w, map[string]any{"status": overall, "ads": ads, "error": firstErr})
 }

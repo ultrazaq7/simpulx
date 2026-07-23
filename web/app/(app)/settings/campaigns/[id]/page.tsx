@@ -884,6 +884,7 @@ function parseCatalogCsv(text: string): CatalogRowInput[] { return parseCatalogR
 // than not offering one.
 function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" | "error") => void }) {
   const [status, setStatus] = useState<Awaited<ReturnType<typeof api.campaignAdsStatus>> | null>(null);
+  const [live, setLive] = useState<Awaited<ReturnType<typeof api.campaignAdsLive>> | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [rows, setRows] = useState<AdsMetricRow[] | null>(null);
   const [alerts, setAlerts] = useState<AdsAlertRow[]>([]);
@@ -898,6 +899,9 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
       // Land on setup when there is nothing to report yet, on performance once live.
       if (st && st.linked_ad_count === 0 && st.ads_status !== "active") setView("setup");
     }).catch((e) => { setStatus(null); setLoadErr(String(e)); });
+    // Live per-ad state from Meta: drives the single pause/resume toggle and the
+    // creative previews. Failure keeps it null and the UI falls back gracefully.
+    api.campaignAdsLive(id).then(setLive).catch(() => setLive(null));
     api.campaignAdsMetrics(id).then((r) => setRows(r.rows)).catch(() => setRows([]));
     api.campaignAdsAlerts(id).then(setAlerts).catch(() => setAlerts([]));
   }
@@ -967,18 +971,42 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
         <span className="text-[13px] text-muted-foreground">
           {status.account_name} &middot; {status.linked_ad_count} linked ad campaign{status.linked_ad_count === 1 ? "" : "s"}
         </span>
+        {/* One truth for the current state, straight from Meta. */}
+        {live?.status && (
+          <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase",
+            live.status === "active" ? "bg-emerald-500/10 text-emerald-600"
+              : live.status === "pending_review" ? "bg-blue-500/10 text-blue-600" : "bg-amber-500/10 text-amber-600")}>
+            {live.status === "pending_review" ? "In review" : live.status}
+          </span>
+        )}
         <div className="flex-1" />
         {status.can_control ? (
-          <div className="flex items-center gap-2">
+          // ONE toggle that mirrors the live state, not two permanent buttons the
+          // user has to disambiguate. Unknown state (Meta unreachable, nothing
+          // delivering yet) falls back to showing both, because guessing wrong
+          // on a spend control is worse than asking.
+          live?.status === "active" ? (
             <button disabled={busy} onClick={() => control("pause")}
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
               <Pause className="w-3.5 h-3.5" />Pause ads
             </button>
+          ) : live?.status === "paused" || live?.status === "pending_review" ? (
             <button disabled={busy} onClick={() => control("resume")}
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
               <Play className="w-3.5 h-3.5" />Resume
             </button>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button disabled={busy} onClick={() => control("pause")}
+                className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border text-[13px] font-semibold hover:bg-muted outline-none disabled:opacity-50">
+                <Pause className="w-3.5 h-3.5" />Pause ads
+              </button>
+              <button disabled={busy} onClick={() => control("resume")}
+                className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
+                <Play className="w-3.5 h-3.5" />Resume
+              </button>
+            </div>
+          )
         ) : (
           // Say WHY rather than hiding the controls with no explanation.
           <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
@@ -1003,6 +1031,37 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
           </div>
         ))}
       </div>
+
+      {/* The creatives as they run on Meta right now: thumbnail + per-ad state.
+          Sebelum ini user cuma lihat angka agregat tanpa pernah lihat iklannya. */}
+      {live && live.ads.length > 0 && (
+        <div className="rounded-lg border border-border p-3">
+          <p className="text-[12.5px] font-semibold text-foreground mb-2">
+            Ads &amp; creatives <span className="font-normal text-muted-foreground">— live from Meta</span>
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {live.ads.map((ad) => (
+              <div key={ad.id} className="rounded-lg border border-border overflow-hidden">
+                <div className="aspect-square bg-muted/40">
+                  {ad.thumbnail
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={ad.thumbnail} alt={ad.name} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full grid place-items-center text-[11px] text-muted-foreground">no preview</div>}
+                </div>
+                <div className="p-1.5">
+                  <p className="text-[11.5px] font-medium text-foreground truncate" title={ad.name}>{ad.name}</p>
+                  <span className={cn("inline-flex mt-0.5 px-1.5 py-px rounded text-[9.5px] font-bold uppercase",
+                    ad.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-600"
+                      : ad.status === "PENDING_REVIEW" || ad.status === "IN_PROCESS" ? "bg-blue-500/10 text-blue-600"
+                        : "bg-amber-500/10 text-amber-600")}>
+                    {ad.status.toLowerCase().replaceAll("_", " ")}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {rows && rows.length > 0 && (
         <div className="rounded-lg border border-border p-3">
