@@ -146,14 +146,24 @@ func (s *server) setAdsStatus(w http.ResponseWriter, r *http.Request, status str
 	// the first failure: with several linked campaigns, a partial result is the
 	// truth and hiding it would leave delivery running while the UI said paused.
 	var failed []string
+	applied := 0
 	for _, id := range ids {
 		if err := metaSetStatus(r.Context(), id, t.token, status); err != nil {
 			s.log.Warn("ads control failed", "campaign", t.campaignName, "object", id, "status", status, "err", err)
 			failed = append(failed, fmt.Sprintf("%s: %v", id, err))
+			continue
+		}
+		applied++
+		// Pause is asymmetric on Meta: pausing the campaign stops everything under
+		// it, but resuming the campaign only clears the CAMPAIGN-level pause — an
+		// ad set or ad that is itself PAUSED stays off (and our own launch creates
+		// all three levels PAUSED). Without this cascade, Resume reported success
+		// while not a single ad delivered. Child failures are reported but do not
+		// count against `applied`, which tallies campaign-level flips.
+		if status == "ACTIVE" {
+			failed = append(failed, resumeChildren(r.Context(), id, t.token)...)
 		}
 	}
-
-	applied := len(ids) - len(failed)
 	// Record it in the same log the monitor writes to, so an operator sees manual
 	// and automatic actions on one timeline instead of two.
 	action := "paused_campaign"
@@ -345,6 +355,7 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 		Name      string `json:"name"`
 		Status    string `json:"status"`
 		Thumbnail string `json:"thumbnail"`
+		Image     string `json:"image"` // full-size creative image when Meta exposes one
 	}
 	var ads []liveAd
 	var firstErr string
@@ -359,14 +370,17 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 				EffectiveStatus string `json:"effective_status"`
 				Creative        *struct {
 					ThumbnailURL string `json:"thumbnail_url"`
+					ImageURL     string `json:"image_url"`
 				} `json:"creative"`
 			} `json:"data"`
 			Error *struct {
 				Message string `json:"message"`
 			} `json:"error"`
 		}
+		// 512px thumbnail: the default 64px crop made creatives unrecognizable.
+		// image_url is the uncropped original when the creative has one.
 		u := fmt.Sprintf(
-			"https://graph.facebook.com/%s/%s/ads?fields=name,effective_status,creative.thumbnail_width(256).thumbnail_height(256){thumbnail_url}&limit=50&access_token=%s",
+			"https://graph.facebook.com/%s/%s/ads?fields=name,effective_status,creative.thumbnail_width(512).thumbnail_height(512){thumbnail_url,image_url}&limit=50&access_token=%s",
 			metaGraphVersion, cid, url.QueryEscape(t.token))
 		if err := metaGet(r.Context(), u, &payload); err != nil {
 			if firstErr == "" {
@@ -387,6 +401,7 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 			la := liveAd{ID: ad.ID, Name: ad.Name, Status: ad.EffectiveStatus}
 			if ad.Creative != nil {
 				la.Thumbnail = ad.Creative.ThumbnailURL
+				la.Image = ad.Creative.ImageURL
 			}
 			ads = append(ads, la)
 		}
@@ -410,4 +425,80 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, map[string]any{"status": overall, "ads": ads, "error": firstErr})
+}
+
+// resumeChildren activates the PAUSED ad sets and ads under one Meta campaign,
+// returning per-object failure strings (empty = all good). Only objects whose
+// CONFIGURED status is PAUSED are touched: effective pauses inherited from the
+// campaign clear on their own, and anything else is not ours to flip.
+func resumeChildren(ctx context.Context, campaignExtID, token string) []string {
+	var failed []string
+	for _, edge := range []string{"adsets", "ads"} {
+		var payload struct {
+			Data []struct {
+				ID     string `json:"id"`
+				Status string `json:"status"`
+			} `json:"data"`
+			Error *struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		u := fmt.Sprintf("https://graph.facebook.com/%s/%s/%s?fields=id,status&limit=100&access_token=%s",
+			metaGraphVersion, campaignExtID, edge, url.QueryEscape(token))
+		if err := metaGet(ctx, u, &payload); err != nil {
+			failed = append(failed, edge+": "+err.Error())
+			continue
+		}
+		if payload.Error != nil {
+			failed = append(failed, edge+": "+payload.Error.Message)
+			continue
+		}
+		for _, o := range payload.Data {
+			if o.Status != "PAUSED" {
+				continue
+			}
+			if err := metaSetStatus(ctx, o.ID, token, "ACTIVE"); err != nil {
+				failed = append(failed, o.ID+": "+err.Error())
+			}
+		}
+	}
+	return failed
+}
+
+// GET /api/campaigns/{id}/ads/{adId}/preview — Meta's own rendered preview of
+// one ad (iframe HTML), the same thing Ads Manager shows. A thumbnail crops the
+// creative and drops the copy; the real preview is the only honest answer to
+// "what does this ad actually look like".
+func (s *server) handleAdPreviewHTML(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	t, msg, code := s.resolveAdsAny(r.Context(), a.OrgID, r.PathValue("id"))
+	if msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+	var payload struct {
+		Data []struct {
+			Body string `json:"body"`
+		} `json:"data"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	// Ownership is enforced by Meta: a foreign ad id under this account's token
+	// simply errors.
+	u := fmt.Sprintf("https://graph.facebook.com/%s/%s/previews?ad_format=MOBILE_FEED_STANDARD&access_token=%s",
+		metaGraphVersion, r.PathValue("adId"), url.QueryEscape(t.token))
+	if err := metaGet(r.Context(), u, &payload); err != nil {
+		http.Error(w, "could not load the ad preview: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	if payload.Error != nil {
+		http.Error(w, "Meta refused the preview: "+payload.Error.Message, http.StatusBadGateway)
+		return
+	}
+	if len(payload.Data) == 0 {
+		http.Error(w, "Meta returned no preview for this ad", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, map[string]any{"html": payload.Data[0].Body})
 }

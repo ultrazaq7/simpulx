@@ -890,7 +890,15 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
   const [alerts, setAlerts] = useState<AdsAlertRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<"performance" | "setup">("performance");
+  // Modal preview iklan: pakai render resmi Meta (iframe), bukan thumbnail.
+  const [adPreview, setAdPreview] = useState<{ adId: string; html?: string } | null>(null);
   const { confirm, ConfirmHost } = useConfirm();
+
+  async function openAdPreview(adId: string) {
+    setAdPreview({ adId });
+    try { const r = await api.adPreviewHTML(id, adId); setAdPreview({ adId, html: r.html }); }
+    catch (e) { notify(String(e), "error"); setAdPreview(null); }
+  }
 
   function load() {
     setLoadErr(null);
@@ -1041,12 +1049,16 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             {live.ads.map((ad) => (
-              <div key={ad.id} className="rounded-lg border border-border overflow-hidden">
-                <div className="aspect-square bg-muted/40">
-                  {ad.thumbnail
+              <button key={ad.id} onClick={() => openAdPreview(ad.id)}
+                className="rounded-lg border border-border overflow-hidden text-left hover:border-primary/50 hover:shadow-sm transition-all outline-none group">
+                <div className="aspect-square bg-muted/40 relative">
+                  {(ad.image || ad.thumbnail)
                     // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={ad.thumbnail} alt={ad.name} className="w-full h-full object-cover" />
+                    ? <img src={ad.image || ad.thumbnail} alt={ad.name} className="w-full h-full object-cover" />
                     : <div className="w-full h-full grid place-items-center text-[11px] text-muted-foreground">no preview</div>}
+                  <span className="absolute inset-0 grid place-items-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                    <span className="opacity-0 group-hover:opacity-100 text-white text-[11px] font-semibold px-2 py-1 rounded bg-black/50 transition-opacity">Preview</span>
+                  </span>
                 </div>
                 <div className="p-1.5">
                   <p className="text-[11.5px] font-medium text-foreground truncate" title={ad.name}>{ad.name}</p>
@@ -1057,7 +1069,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
                     {ad.status.toLowerCase().replaceAll("_", " ")}
                   </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -1069,9 +1081,13 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={rows} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(d: string) => d.slice(5)} />
+              {/* Rows arrive as full ISO timestamps; slice(5) showed the raw
+                  "06-30T00:00:00Z". Human date only: "30/06". */}
+              <XAxis dataKey="date" tick={{ fontSize: 10 }}
+                tickFormatter={(d: string) => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`} />
               <YAxis tick={{ fontSize: 10 }} />
-              <RTooltip formatter={(v) => money(Number(v))} />
+              <RTooltip formatter={(v) => money(Number(v))}
+                labelFormatter={(d) => String(d).slice(0, 10)} />
               <Bar dataKey="spend" fill="#0E5B54" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -1100,6 +1116,21 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
           </div>
         )}
       </div>
+
+      {/* Preview iklan: render resmi Meta (iframe), sama seperti Ads Manager. */}
+      {adPreview && (
+        <div className="fixed inset-0 z-[80] bg-black/50 grid place-items-center p-4" onClick={() => setAdPreview(null)}>
+          <div className="bg-card rounded-xl border border-border p-3 max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[12.5px] font-semibold text-foreground">Ad preview</p>
+              <button onClick={() => setAdPreview(null)} className="p-1 rounded-md hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
+            </div>
+            {adPreview.html
+              ? <div dangerouslySetInnerHTML={{ __html: adPreview.html }} />
+              : <div className="w-[340px] h-[420px] grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

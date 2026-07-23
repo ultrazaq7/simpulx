@@ -564,8 +564,10 @@ export const api = {
   suggestAdAudience: (id: string) =>
     req<{ interests: { name: string; why: string }[] }>(`/api/campaigns/${id}/ads/suggest-audience`, { method: "POST" }),
   campaignAdsLive: (id: string) =>
-    req<{ status: string; ads: { id: string; name: string; status: string; thumbnail: string }[]; error?: string }>(
+    req<{ status: string; ads: { id: string; name: string; status: string; thumbnail: string; image: string }[]; error?: string }>(
       `/api/campaigns/${id}/ads/live`),
+  adPreviewHTML: (id: string, adId: string) =>
+    req<{ html: string }>(`/api/campaigns/${id}/ads/${adId}/preview`),
   listAdPages: (id: string) =>
     req<{ pages: { id: string; name: string }[]; chosen: { id: string; name: string } }>(
       `/api/campaigns/${id}/ads/pages`),
