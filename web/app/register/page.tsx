@@ -187,6 +187,7 @@ export default function RegisterPage() {
   const [seatsStr, setSeatsStr] = useState("3");
   const seats = Math.max(1, Math.min(100, parseInt(seatsStr, 10) || 1));
   const [form, setForm] = useState({ org_name: "", industry: "", name: "", email: "", phone: "", note: "" });
+  const [orgPicked, setOrgPicked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   // Step bukti transfer (khusus permintaan berbayar): id request + status upload.
@@ -233,6 +234,9 @@ export default function RegisterPage() {
     setErr("");
     if (!form.name.trim() || !form.email.includes("@")) { setErr(t("reg.errNameEmail")); return; }
     if (menu === "signup" && !form.org_name.trim()) { setErr(t("reg.errOrg")); return; }
+    // Top up: nama bisnis harus hasil pilihan dari pencarian backend, bukan
+    // ketikan bebas, supaya operator match-nya pasti ke org yang benar.
+    if (menu === "topup" && !orgPicked) { setErr(t("reg.errOrgPick")); return; }
     setBusy(true);
     try {
       const r = await fetch("/api/public/register", {
@@ -463,7 +467,9 @@ export default function RegisterPage() {
           <Field label={t("reg.email")} value={form.email} onChange={(v) => set("email", v)} placeholder="nama@bisnis.com" type="email" />
           <Field label={t("reg.phone")} value={form.phone} onChange={(v) => set("phone", v)} placeholder="08xxxxxxxxxx" />
           {menu === "topup" && (
-            <Field label={t("reg.orgNameRegistered")} value={form.org_name} onChange={(v) => set("org_name", v)} placeholder={t("reg.orgNameRegisteredPh")} />
+            <OrgSearchField label={t("reg.orgNameRegistered")} value={form.org_name}
+              onChange={(v, picked) => { set("org_name", v); setOrgPicked(picked); }}
+              placeholder={t("reg.orgNameRegisteredPh")} noResults={t("reg.orgSearchEmpty")} />
           )}
           <Field label={t("reg.note")} value={form.note} onChange={(v) => set("note", v)} placeholder="" />
         </div>
@@ -525,6 +531,57 @@ function Shell({ children, lang, onLang }: { children: React.ReactNode; lang: La
 }
 
 const INPUT = "w-full h-10 px-3 rounded-lg border border-gray-200 bg-white text-[13.5px] outline-none focus:border-emerald-600 transition-colors";
+
+// Combobox nama bisnis untuk top-up: mencari org TERDAFTAR di backend
+// (min. 3 huruf, debounce), dan nilai dianggap valid hanya kalau dipilih
+// dari hasil (atau persis sama dengan salah satu hasil) — bukan teks bebas.
+function OrgSearchField({ label, value, onChange, placeholder, noResults }: {
+  label: string; value: string; onChange: (v: string, picked: boolean) => void;
+  placeholder?: string; noResults: string;
+}) {
+  const [opts, setOpts] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const tmr = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const search = (q: string) => {
+    onChange(q, false);
+    if (tmr.current) clearTimeout(tmr.current);
+    if (q.trim().length < 3) { setOpts([]); setOpen(false); setSearched(false); return; }
+    tmr.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/public/org-search?q=${encodeURIComponent(q.trim())}`);
+        const d = await r.json();
+        const names: string[] = d.orgs || [];
+        setOpts(names); setOpen(true); setSearched(true);
+        // Ketikan yang persis sama dengan hasil dihitung sebagai pilihan sah.
+        const exact = names.find((n) => n.toLowerCase() === q.trim().toLowerCase());
+        if (exact) onChange(exact, true);
+      } catch { setOpts([]); setOpen(false); }
+    }, 250);
+  };
+  return (
+    <div className="relative">
+      <Label>{label}</Label>
+      <input value={value} onChange={(e) => search(e.target.value)} placeholder={placeholder}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onFocus={() => { if (searched && opts.length) setOpen(true); }}
+        className={INPUT} />
+      {open && (
+        <div className="absolute z-20 left-0 right-0 mt-1 rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden">
+          {opts.length === 0 ? (
+            <p className="px-3 py-2.5 text-[12.5px] text-gray-400">{noResults}</p>
+          ) : opts.map((n) => (
+            <button key={n} type="button"
+              onMouseDown={(e) => { e.preventDefault(); onChange(n, true); setOpen(false); }}
+              className="block w-full text-left px-3 py-2 text-[13px] text-gray-800 hover:bg-emerald-50">
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-[12px] font-semibold text-gray-600 mb-1">{children}</label>;
 }

@@ -68,6 +68,32 @@ var topupPackages = map[string]topupPackage{
 	"enterprise": {Label: "Max", Credits: 2000, PerCredit: 350},
 }
 
+// GET /api/public/org-search?q= - typeahead for the top-up form, so the
+// requester picks their EXACT registered business name instead of retyping it
+// from memory. Returns names only (no ids), needs 3+ characters and caps at 8
+// rows behind the auth rate limiter: enough for a customer to find their own
+// org, useless for scraping the directory.
+func (s *server) handlePublicOrgSearch(w http.ResponseWriter, r *http.Request) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	names := []string{}
+	if len([]rune(q)) >= 3 {
+		rows, err := s.pool.Query(r.Context(),
+			`SELECT name FROM organizations WHERE name ILIKE '%'||$1||'%' ORDER BY name LIMIT 8`, q)
+		if err != nil {
+			http.Error(w, "search failed", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var n string
+			if rows.Scan(&n) == nil {
+				names = append(names, n)
+			}
+		}
+	}
+	writeJSON(w, map[string]any{"orgs": names})
+}
+
 // POST /api/public/register - the one public entry for both request kinds.
 func (s *server) handlePublicRegister(w http.ResponseWriter, r *http.Request) {
 	var b struct {

@@ -2386,5 +2386,7 @@
   "adsBlocker.noCopy": "Belum ada teks iklan yang di-approve. Buat, baca, lalu approve.",
   "adsBlocker.noCreative": "Belum ada materi iklan. Upload minimal satu foto atau video produk.",
   "adsBlocker.noPage": "Facebook Page belum dipilih. Pilih Page tempat iklan tayang (WhatsApp-nya harus terhubung).",
-  "adsBlocker.carouselMin": "Carousel butuh minimal 2 gambar (video tidak bisa jadi kartu carousel)."
+  "adsBlocker.carouselMin": "Carousel butuh minimal 2 gambar (video tidak bisa jadi kartu carousel).",
+  "reg.errOrgPick": "Pilih nama bisnis dari hasil pencarian.",
+  "reg.orgSearchEmpty": "Tidak ketemu. Cek ejaan nama bisnis kamu."
 }

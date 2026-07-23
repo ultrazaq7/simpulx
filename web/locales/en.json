@@ -2386,5 +2386,7 @@
   "adsBlocker.noCopy": "No approved ad copy. Generate it, read it, then approve.",
   "adsBlocker.noCreative": "No creative uploaded. Add at least one product photo or video.",
   "adsBlocker.noPage": "No Facebook Page chosen. Pick the Page the ad runs as (it must have WhatsApp connected).",
-  "adsBlocker.carouselMin": "Carousel needs at least 2 images (videos are not carousel cards)."
+  "adsBlocker.carouselMin": "Carousel needs at least 2 images (videos are not carousel cards).",
+  "reg.errOrgPick": "Pick your business name from the search results.",
+  "reg.orgSearchEmpty": "No match found. Check your business name spelling."
 }
