@@ -1161,7 +1161,17 @@
     "totalUsers": "Total pengguna",
     "views": "Tayangan",
     "xPerformance": "Performa {{x}}",
-    "xActivitySla": "Aktivitas {{x}} dan SLA"
+    "xActivitySla": "Aktivitas {{x}} dan SLA",
+    "aiUsageTitle": "Pemakaian AI",
+    "aiUsageSub": "Konsumsi kredit AI di seluruh akun kamu, sepanjang waktu.",
+    "aiCreditsUsedAllTime": "Kredit AI terpakai (semua waktu)",
+    "aiCreditsPerDay": "Kredit AI per hari",
+    "aiUsageByCampaign": "Pemakaian per campaign",
+    "campaign": "Campaign",
+    "creditsUsed": "Kredit terpakai",
+    "allocated": "Dialokasikan",
+    "remaining": "Sisa",
+    "repliesThisMonth": "Balasan bulan ini"
   },
   "contacts": {
     "searchNameOrPhone": "Cari nama atau telepon",

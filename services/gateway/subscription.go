@@ -239,6 +239,21 @@ func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) 
 // (campaign_credits) is joined alongside as its own columns, clearly separate.
 func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// Role scope: owner/admin see the WHOLE org; everyone else (manager, agent,
+	// custom roles) sees only the campaigns they belong to. So an agent's AI Usage
+	// shows their campaigns' credits, a manager's shows theirs, and only
+	// admin/owner see the full picture. Applied to all three panels below.
+	// convScope filters llm_usage rows to the caller's campaigns via the
+	// conversation link; campScope filters the per-campaign table on the campaign
+	// id itself. $2 is the caller's user id when scoped.
+	scoped := !orgWideCampaignView(a)
+	uArgs := []any{a.OrgID}
+	convScope, campScope := "", ""
+	if scoped {
+		uArgs = append(uArgs, a.UserID)
+		convScope = " AND cv.campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $2)"
+		campScope = " AND " + campaignMembershipScope("c", 2)
+	}
 	// All time, per hari, PER FITUR (nurture/followup/extract/summary/dst) dari
 	// ledger llm_usage - sumber yang sama dengan tab Credits & Usage per
 	// campaign, jadi angkanya tidak pernah beda cerita. Zero-filled via
@@ -250,21 +265,27 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 	// (bukan jumlah call), karena 1 upload katalog = 10 kredit; menghitung call
 	// akan membuat total di chart != angka kredit di ledger.
 	const creditFeatures = "'nurture','followup','transcribe','ads_copy','summary','catalog'"
-	const creditWeight = "sum(CASE WHEN feature='catalog' THEN 10 ELSE 1 END)::int"
+	// Sumber llm_usage; saat scoped, JOIN conversations agar bisa difilter ke
+	// campaign milik user (fitur tanpa conversation seperti ad_copy/catalog jadi
+	// gugur otomatis - itu benar: mereka aksi setup org-level, bukan per-agent).
+	usageFrom := "llm_usage lu"
+	if scoped {
+		usageFrom = "llm_usage lu JOIN conversations cv ON cv.id = lu.conversation_id"
+	}
+	usageWhere := " WHERE lu.organization_id=$1 AND lu.feature IN (" + creditFeatures + ")" + convScope
+	creditWeight := "sum(CASE WHEN lu.feature='catalog' THEN 10 ELSE 1 END)::int"
 	daily, err := s.queryMaps(r.Context(),
 		`SELECT to_char(d::date, 'YYYY-MM-DD') AS date, f.feature, COALESCE(x.count, 0) AS count
 		   FROM generate_series(
-		          (SELECT min(created_at)::date FROM llm_usage
-		            WHERE organization_id=$1 AND feature IN (`+creditFeatures+`)),
+		          (SELECT min(lu.created_at)::date FROM `+usageFrom+usageWhere+`),
 		          current_date, interval '1 day') d
-		   CROSS JOIN (SELECT DISTINCT feature FROM llm_usage
-		                WHERE organization_id=$1 AND feature IN (`+creditFeatures+`)) f
+		   CROSS JOIN (SELECT DISTINCT lu.feature AS feature FROM `+usageFrom+usageWhere+`) f
 		   LEFT JOIN (
-		     SELECT created_at::date AS day, feature, `+creditWeight+` AS count
-		       FROM llm_usage WHERE organization_id=$1 AND feature IN (`+creditFeatures+`)
+		     SELECT lu.created_at::date AS day, lu.feature AS feature, `+creditWeight+` AS count
+		       FROM `+usageFrom+usageWhere+`
 		      GROUP BY 1, 2
 		   ) x ON x.day = d::date AND x.feature = f.feature
-		  ORDER BY 1, 2`, a.OrgID)
+		  ORDER BY 1, 2`, uArgs...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -286,16 +307,16 @@ func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request)
 		      WHERE m.organization_id=$1 AND m.sender_type='bot'
 		        AND cv.campaign_id = c.id AND m.created_at >= date_trunc('month', now())
 		   ) mm ON true
-		  WHERE c.organization_id=$1
-		  ORDER BY COALESCE(cc.used_credits,0) DESC, c.name`, a.OrgID)
+		  WHERE c.organization_id=$1`+campScope+`
+		  ORDER BY COALESCE(cc.used_credits,0) DESC, c.name`, uArgs...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	// Total per fitur, all time - kartu ringkas di atas chart.
 	byFeature, _ := s.queryMaps(r.Context(),
-		`SELECT feature, `+creditWeight+` AS count
-		   FROM llm_usage WHERE organization_id=$1 AND feature IN (`+creditFeatures+`)
-		  GROUP BY 1 ORDER BY 2 DESC`, a.OrgID)
+		`SELECT lu.feature AS feature, `+creditWeight+` AS count
+		   FROM `+usageFrom+usageWhere+`
+		  GROUP BY 1 ORDER BY 2 DESC`, uArgs...)
 	writeJSON(w, map[string]any{"daily": daily, "by_feature": byFeature, "by_campaign": byCampaign})
 }

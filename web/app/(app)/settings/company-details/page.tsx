@@ -2,8 +2,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Building2, Lock } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
-import { ChartTooltip } from "@/components/ChartTooltip";
 import { api, getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";
@@ -279,7 +277,6 @@ export default function GeneralSettingsPage() {
                 <QuotaRow label={t("settings.simpulerCredits")} used={sub.used_simpuler_credits} limit={sub.quotas?.simpuler_credits} />
                 <QuotaRow label={t("contacts.customFields")} used={sub.used_custom_fields} limit={sub.quotas?.custom_fields} />
               </div>
-              <UsageDetail />
             </div>
           ) : <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}
         </Section>
@@ -294,106 +291,4 @@ export default function GeneralSettingsPage() {
 // hari (chart) + split per campaign bulan berjalan, dihitung backend dari
 // SUMBER YANG SAMA dengan angka headernya supaya tidak pernah beda cerita.
 // Kolom alokasi (Credits & Usage per campaign) ditampilkan bersandingan.
-// Warna per fitur AI · nurture/followup (pemakan kredit) dapat warna brand,
-// fitur pendukung dapat warna netral/aksen.
-const FEATURE_COLORS: Record<string, string> = {
-  nurture: "#0E5B54", followup: "#1C8C7D", transcribe: "#3FA796",
-  summary: "#C9871F", ads_copy: "#5B8DEF", catalog: "#9C6BCE",
-  extract: "#94A3B8", ads_audience: "#B0BEC5",
-};
-const featureColor = (f: string, i: number) =>
-  FEATURE_COLORS[f] || ["#0E5B54", "#1C8C7D", "#C9871F", "#5B8DEF", "#9C6BCE", "#94A3B8"][i % 6];
 
-function UsageDetail() {
-  const { t } = useI18n();
-  const [data, setData] = useState<{
-    daily: { date: string; feature: string; count: number }[];
-    by_feature: { feature: string; count: number }[];
-    by_campaign: { campaign: string; campaign_id: string; allocated_credits: number; used_credits: number; remaining: number; replies: number }[];
-  } | null>(null);
-  useEffect(() => { api.subscriptionUsage().then(setData).catch(() => setData(null)); }, []);
-
-  if (!data) return null;
-  // Share dihitung dari LEDGER kredit (angka yang sama dengan header dan tab
-  // Credits & Usage per campaign), bukan dari hitungan pesan.
-  const totalUsed = data.by_campaign.reduce((s, c) => s + c.used_credits, 0);
-  // Pivot {date, feature, count} -> satu baris per tanggal untuk stacked bars.
-  const features = (data.by_feature || []).map((f) => f.feature);
-  const dailyPivot = (() => {
-    const byDate = new Map<string, Record<string, number | string>>();
-    for (const r of data.daily || []) {
-      if (!byDate.has(r.date)) byDate.set(r.date, { date: r.date });
-      (byDate.get(r.date) as Record<string, number>)[r.feature] = r.count;
-    }
-    return Array.from(byDate.values());
-  })();
-
-  return (
-    <div className="space-y-4">
-      {(data.by_feature || []).length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {data.by_feature.map((f, i) => (
-            <span key={f.feature} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[12px]">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: featureColor(f.feature, i) }} />
-              <span className="capitalize text-foreground">{f.feature.replaceAll("_", " ")}</span>
-              <b className="tabular-nums">{f.count.toLocaleString("id-ID")}</b>
-            </span>
-          ))}
-        </div>
-      )}
-      {dailyPivot.length > 0 && (
-        <div className="rounded-lg border border-border p-3">
-          <p className="text-[12.5px] font-semibold text-foreground mb-2">{t("settings.aiRepliesPerDay")}</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={dailyPivot} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }}
-                tickFormatter={(d: string) => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`} />
-              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-              <RTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltip showTotal labelFormat={(d) => String(d).slice(0, 10)} />} />
-              {features.map((f, i) => (
-                <Bar key={f} dataKey={f} stackId="u" fill={featureColor(f, i)}
-                  radius={i === features.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {data.by_campaign.length > 0 && (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <p className="text-[12.5px] font-semibold text-foreground px-3 py-2 border-b border-border">
-            {t("settings.usageByCampaign")}
-          </p>
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30 border-b border-border">
-                <th className="px-3 py-1.5">{t("settings.campaign")}</th>
-                <th className="px-3 py-1.5 text-right">{t("settings.creditsUsed")}</th>
-                <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("settings.allocated")}</th>
-                <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("settings.remaining")}</th>
-                <th className="px-3 py-1.5 text-right hidden md:table-cell">{t("settings.repliesThisMonth")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {data.by_campaign.map((c) => {
-                const share = totalUsed > 0 ? Math.round((c.used_credits / totalUsed) * 100) : 0;
-                return (
-                  <tr key={c.campaign_id}>
-                    <td className="px-3 py-2 font-medium text-foreground">{c.campaign}
-                      {share > 0 && <span className="ml-1.5 text-[11px] text-muted-foreground tabular-nums">{share}%</span>}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{c.used_credits}</td>
-                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">{c.allocated_credits}</td>
-                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">{c.remaining}</td>
-                    <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell text-muted-foreground">{c.replies}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}

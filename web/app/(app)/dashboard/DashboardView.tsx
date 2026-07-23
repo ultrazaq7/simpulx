@@ -6,6 +6,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, LabelList,
 } from "recharts";
+import { ChartTooltip } from "@/components/ChartTooltip";
 import {
   BarChart3, MessageSquare, Inbox, Flame, Timer,
   TrendingDown, TrendingUp, ChevronRight, ChevronsLeft, Zap, Mail, Reply, Trophy,
@@ -14,6 +15,7 @@ import {
   Download, FileText, FileSpreadsheet, ChevronDown,
   ArrowUpRight, ArrowDownRight, ArrowRight, Users, ShoppingCart,
   Infinity as InfinityIcon, Music2, Globe, Sparkles, Award, AlertTriangle, RefreshCw, Search,
+  Loader2,
 } from "lucide-react";
 
 import { api, getUser, getToken } from "@/lib/api";
@@ -652,7 +654,7 @@ function AgentDashboard() {
   );
 }
 
-export type ReportTab = "overview" | "marketing" | "creatives";
+export type ReportTab = "overview" | "marketing" | "creatives" | "ai-usage";
 
 // Each report is a standalone route (own URL + tab/meta title via Shell's
 // PAGE_TITLES): /dashboard, /dashboard/campaign-performance,
@@ -761,6 +763,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
     { key: "overview" as const, label: "General Report", href: "/dashboard/general-report" },
     { key: "marketing" as const, label: "Campaign Performance", href: "/dashboard/campaign-performance" },
     { key: "creatives" as const, label: "Creative Insights", href: "/dashboard/creative-insights" },
+    { key: "ai-usage" as const, label: "AI Usage", href: "/dashboard/ai-usage" },
   ];
 
   return (
@@ -821,7 +824,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
 
       <div className="flex-1 min-w-0 overflow-y-auto">
 
-      {tab === "marketing" ? <MarketingAnalytics /> : tab === "creatives" ? <CreativeReport /> : (
+      {tab === "marketing" ? <MarketingAnalytics /> : tab === "creatives" ? <CreativeReport /> : tab === "ai-usage" ? <AiUsageReport /> : (
       <div className="p-4">
         {/* â”€â”€ Filters â”€â”€ */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -2104,6 +2107,126 @@ function MarketingAnalytics() {
 // Per-creative report · its own page so creative-level insight has room to grow.
 // Which click-to-WhatsApp ad drove leads + conversions, with its own date +
 // campaign filters (independent of the Ads Report).
+// AI feature colors: credit-consuming (nurture/followup/transcribe/summary/
+// ads_copy/catalog) get brand/accent colors; internal ones stay neutral.
+const AI_FEATURE_COLORS: Record<string, string> = {
+  nurture: "#0E5B54", followup: "#1C8C7D", transcribe: "#3FA796",
+  summary: "#C9871F", ads_copy: "#5B8DEF", catalog: "#9C6BCE",
+  extract: "#94A3B8", ads_audience: "#B0BEC5",
+};
+const aiFeatureColor = (f: string, i: number) =>
+  AI_FEATURE_COLORS[f] || ["#0E5B54", "#1C8C7D", "#C9871F", "#5B8DEF", "#9C6BCE", "#94A3B8"][i % 6];
+
+// Centralised AI Usage report: org-wide credit consumption (daily stacked chart
+// + per-feature totals) AND the per-campaign credit breakdown, so the whole
+// "what is my AI spending" picture lives on ONE page (moved off Company Details
+// and the campaign tab). Numbers come from the credit ledger via
+// api.subscriptionUsage - identical to the billing header.
+function AiUsageReport() {
+  const { t } = useI18n();
+  const [data, setData] = useState<{
+    daily: { date: string; feature: string; count: number }[];
+    by_feature: { feature: string; count: number }[];
+    by_campaign: { campaign: string; campaign_id: string; allocated_credits: number; used_credits: number; remaining: number; replies: number }[];
+  } | null>(null);
+  useEffect(() => { api.subscriptionUsage().then(setData).catch(() => setData(null)); }, []);
+
+  if (!data) return <div className="p-4"><div className="h-40 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div></div>;
+
+  const totalUsed = data.by_campaign.reduce((sum, c) => sum + c.used_credits, 0);
+  const features = (data.by_feature || []).map((f) => f.feature);
+  const dailyPivot = (() => {
+    const byDate = new Map<string, Record<string, number | string>>();
+    for (const r of data.daily || []) {
+      if (!byDate.has(r.date)) byDate.set(r.date, { date: r.date });
+      (byDate.get(r.date) as Record<string, number>)[r.feature] = r.count;
+    }
+    return Array.from(byDate.values());
+  })();
+
+  return (
+    <div className="p-4 space-y-4">
+      <div>
+        <h2 className="text-[17px] font-bold text-foreground">{t("dashboard.aiUsageTitle")}</h2>
+        <p className="text-[12.5px] text-muted-foreground">{t("dashboard.aiUsageSub")}</p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-3">
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">{t("dashboard.aiCreditsUsedAllTime")}</p>
+        <p className="text-[26px] font-extrabold tabular-nums text-foreground">{totalUsed.toLocaleString("id-ID")}</p>
+      </div>
+
+      {(data.by_feature || []).length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {data.by_feature.map((f, i) => (
+            <span key={f.feature} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[12px]">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: aiFeatureColor(f.feature, i) }} />
+              <span className="capitalize text-foreground">{f.feature.replaceAll("_", " ")}</span>
+              <b className="tabular-nums">{f.count.toLocaleString("id-ID")}</b>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {dailyPivot.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-3">
+          <p className="text-[12.5px] font-semibold text-foreground mb-2">{t("dashboard.aiCreditsPerDay")}</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={dailyPivot} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }}
+                tickFormatter={(d: string) => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`} />
+              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={28} />
+              <RechartsTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltip showTotal labelFormat={(d) => String(d).slice(0, 10)} />} />
+              {features.map((f, i) => (
+                <Bar key={f} dataKey={f} stackId="u" fill={aiFeatureColor(f, i)} name={f.replaceAll("_", " ")}
+                  radius={i === features.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} maxBarSize={26} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {data.by_campaign.length > 0 && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <p className="text-[12.5px] font-semibold text-foreground px-3 py-2 border-b border-border">
+            {t("dashboard.aiUsageByCampaign")}
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px] whitespace-nowrap">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30 border-b border-border">
+                  <th className="px-3 py-1.5">{t("dashboard.campaign")}</th>
+                  <th className="px-3 py-1.5 text-right">{t("dashboard.creditsUsed")}</th>
+                  <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("dashboard.allocated")}</th>
+                  <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("dashboard.remaining")}</th>
+                  <th className="px-3 py-1.5 text-right hidden md:table-cell">{t("dashboard.repliesThisMonth")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {data.by_campaign.map((c) => {
+                  const share = totalUsed > 0 ? Math.round((c.used_credits / totalUsed) * 100) : 0;
+                  return (
+                    <tr key={c.campaign_id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-3 py-2 font-medium text-foreground">{c.campaign}
+                        {share > 0 && <span className="ml-1.5 text-[11px] text-muted-foreground tabular-nums">{share}%</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold">{c.used_credits}</td>
+                      <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">{c.allocated_credits}</td>
+                      <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">{c.remaining}</td>
+                      <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell text-muted-foreground">{c.replies}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CreativeReport() {
   const { t } = useI18n();
   const [dateRange, setDateRange] = useState("30d");

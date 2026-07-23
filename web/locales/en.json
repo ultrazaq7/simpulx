@@ -1161,7 +1161,17 @@
     "totalUsers": "Total users",
     "views": "Views",
     "xPerformance": "{{x}} performance",
-    "xActivitySla": "{{x}} activity and SLA"
+    "xActivitySla": "{{x}} activity and SLA",
+    "aiUsageTitle": "AI Usage",
+    "aiUsageSub": "AI credit consumption across your account, all time.",
+    "aiCreditsUsedAllTime": "AI credits used (all time)",
+    "aiCreditsPerDay": "AI credits per day",
+    "aiUsageByCampaign": "Usage by campaign",
+    "campaign": "Campaign",
+    "creditsUsed": "Credits used",
+    "allocated": "Allocated",
+    "remaining": "Remaining",
+    "repliesThisMonth": "Replies this month"
   },
   "contacts": {
     "searchNameOrPhone": "Search name or phone",
