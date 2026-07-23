@@ -125,7 +125,11 @@ export default function RegisterPage() {
   const [menu, setMenu] = useState<"signup" | "topup">("signup");
   // Wizard dua layar: layar 1 pilih paket, layar 2 isi data. pkg kosong = layar 1.
   const [pkg, setPkg] = useState("");
-  const [seats, setSeats] = useState(3);
+  // Input seat dipegang sebagai STRING: memaksa Number(value)||1 di onChange
+  // membuat field mustahil dikosongkan (selalu membal ke 1, terasa terkunci).
+  // Angka efektifnya di-clamp saat dipakai dan saat blur.
+  const [seatsStr, setSeatsStr] = useState("3");
+  const seats = Math.max(1, Math.min(100, parseInt(seatsStr, 10) || 1));
   const [form, setForm] = useState({ org_name: "", industry: "", name: "", email: "", phone: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -160,7 +164,7 @@ export default function RegisterPage() {
   function choose(key: string) {
     setPkg(key);
     const tr = SIGNUP_TIERS.find((x) => x.key === key);
-    if (tr && tr.minSeats > 1) setSeats((sv) => Math.max(sv, tr.minSeats));
+    if (tr && tr.minSeats > 1) setSeatsStr((sv) => String(Math.max(parseInt(sv, 10) || 1, tr.minSeats)));
     window.scrollTo({ top: 0 });
   }
   function back() {
@@ -391,8 +395,10 @@ export default function RegisterPage() {
               {!isTrial && (
                 <div>
                   <Label>{t("reg.seats")}</Label>
-                  <input type="number" min={1} max={100} value={seats}
-                    onChange={(e) => setSeats(Math.max(1, Math.min(100, Number(e.target.value) || 1)))} className={INPUT} />
+                  <input type="text" inputMode="numeric" value={seatsStr}
+                    onChange={(e) => setSeatsStr(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+                    onBlur={() => setSeatsStr(String(Math.max(tier?.minSeats || 1, seats)))}
+                    className={INPUT} />
                 </div>
               )}
             </>
