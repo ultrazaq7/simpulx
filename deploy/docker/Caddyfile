@@ -67,7 +67,10 @@ simpulx.com {
 		@dynamic not path /assets/* /img/* /favicon.png /favicon.svg
 		header @dynamic Cache-Control "no-cache"
 		file_server
-		try_files {path} {path}.html /index.html
+		# {path}/ wajib ada: tanpa itu URL folder seperti /en/ tidak match file
+		# apa pun dan jatuh ke fallback /index.html (homepage ID) -- toggle
+		# bahasa di homepage terlihat "tidak berfungsi".
+		try_files {path} {path}.html {path}/ /index.html
 	}
 }
 
