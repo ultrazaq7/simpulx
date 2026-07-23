@@ -218,7 +218,7 @@ export default function RegisterPage() {
 
   return (
     <Shell>
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 animate-fade-in">
         <h1 className="text-[26px] sm:text-[32px] font-extrabold text-gray-900 tracking-tight">
           {menu === "signup" ? t("reg.headline") : t("reg.topupHeadline")}
         </h1>
@@ -250,10 +250,11 @@ export default function RegisterPage() {
 
       {menu === "signup" ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-          {SIGNUP_TIERS.map((t) => (
+          {SIGNUP_TIERS.map((t, ti) => (
             <button key={t.key} onClick={() => choose(t.key)}
-              className={`relative text-left rounded-2xl border-2 p-4 transition-all outline-none ${
-                pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+              style={{ animationDelay: `${ti * 70}ms` }}
+              className={`relative text-left rounded-2xl border-2 p-4 transition-all outline-none animate-fade-in opacity-0 [animation-fill-mode:forwards] hover:-translate-y-1 hover:shadow-lg ${
+                pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-emerald-600/40"}`}>
               {t.highlight && (
                 <span className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10.5px] font-bold">{i18n("reg.popular")}</span>
               )}
@@ -276,10 +277,11 @@ export default function RegisterPage() {
         </div>
       ) : (
         <div className="grid sm:grid-cols-3 gap-3 mb-8 max-w-2xl mx-auto">
-          {TOPUP_PACKS.map((t) => (
+          {TOPUP_PACKS.map((t, ti) => (
             <button key={t.key} onClick={() => choose(t.key)}
-              className={`text-left rounded-2xl border-2 p-4 transition-all outline-none ${
-                pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+              style={{ animationDelay: `${ti * 70}ms` }}
+              className={`text-left rounded-2xl border-2 p-4 transition-all outline-none animate-fade-in opacity-0 [animation-fill-mode:forwards] hover:-translate-y-1 hover:shadow-lg ${
+                pkg === t.key ? "border-emerald-600 bg-emerald-50/40 shadow-md" : "border-gray-200 bg-white hover:border-emerald-600/40"}`}>
               <p className="text-[14px] font-extrabold text-gray-900">{t.name}</p>
               <p className="text-[20px] font-extrabold text-gray-900 mt-1">{t.credits.toLocaleString("id-ID")} <span className="text-[11px] font-medium text-gray-400">kredit</span></p>
               <p className="text-[12px] text-gray-500 mt-1">{rp(t.perCredit)} / kredit</p>
@@ -294,7 +296,7 @@ export default function RegisterPage() {
 
       {/* Layar 2: ringkasan paket + form, dengan tombol kembali. */}
       {pkg && (
-      <div className="max-w-lg mx-auto">
+      <div key={pkg} className="max-w-lg mx-auto animate-fade-in">
         <button onClick={back}
           className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-500 hover:text-gray-900 mb-4 outline-none">
           <ArrowLeft className="w-4 h-4" /> {t("reg.changePkg")}
