@@ -5,13 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
-	"sort"
-	"strconv"
-	"os"
 	"github.com/google/uuid"
 	"github.com/simpulx/v2/libs/go/config"
+	"net/http"
+	"net/url"
+	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -652,7 +652,12 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 	// only syncs campaign insights), so this view is leads -> conversions only.
 	cq := `SELECT att.referral_source AS source_id,
 	              max(att.referral_url) AS source_url,
-	              COALESCE((array_agg(att.referral_image_url) FILTER (WHERE att.referral_image_url IS NOT NULL))[1], max(acr.image_url)) AS image_url,
+	              -- Synced creative image FIRST: the referral snapshot URL is whatever
+	              -- fbcdn link the CTWA click carried and it expires within days,
+	              -- while the synced one is refreshed on every sync. A dead image
+	              -- here renders as an empty placeholder in Creative Insights.
+	              COALESCE(NULLIF(max(acr.image_url), ''),
+	                       (array_agg(att.referral_image_url) FILTER (WHERE att.referral_image_url IS NOT NULL))[1]) AS image_url,
 	              -- Prefer the synced Marketing-API creative title: the CTWA referral
 	              -- headline is usually the button/greeting text ("Chat with us"),
 	              -- not the ad's real headline.
@@ -904,7 +909,7 @@ func (s *server) handleAdPerformance(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, map[string]any{
 		"from": from, "to": to,
-		"campaigns": campRows,
+		"campaigns":     campRows,
 		"daily":         dailyRows,
 		"creatives":     creativeRows,
 		"sources":       sources,
@@ -931,11 +936,11 @@ type metaInsight struct {
 	// window. Drives the ads-management fatigue rule (migration 0108); absent
 	// from every sync before that, so historical rows read 0.
 	Frequency string `json:"frequency"`
-	DateStart    string `json:"date_start"`
-	Age          string `json:"age"`    // present on age-breakdown rows
-	Gender       string `json:"gender"` // present on gender-breakdown rows
-	Region       string `json:"region"` // present on region-breakdown rows (province/state)
-	Actions      []struct {
+	DateStart string `json:"date_start"`
+	Age       string `json:"age"`    // present on age-breakdown rows
+	Gender    string `json:"gender"` // present on gender-breakdown rows
+	Region    string `json:"region"` // present on region-breakdown rows (province/state)
+	Actions   []struct {
 		ActionType string `json:"action_type"`
 		Value      string `json:"value"`
 	} `json:"actions"`
@@ -1132,7 +1137,7 @@ type metaAd struct {
 	// MAPPING when the ad id was never typed into campaigns.ad_source_ids, which
 	// is what stops every newly created ad from becoming a routing gap.
 	CampaignID string `json:"campaign_id"`
-	Creative struct {
+	Creative   struct {
 		ThumbnailURL string `json:"thumbnail_url"`
 		ImageURL     string `json:"image_url"`
 		Title        string `json:"title"`
@@ -1165,7 +1170,9 @@ type metaAd struct {
 // upserts ad_creatives (keyed by ad_id). One paginated call per account.
 func (s *server) syncMetaAdCreatives(ctx context.Context, accountID, orgID, extID, token string) {
 	q := url.Values{}
-	q.Set("fields", "id,campaign_id,creative{thumbnail_url,image_url,title,body,object_story_spec{link_data{message,name,picture},video_data{image_url,message,title}},asset_feed_spec{titles,bodies}}")
+	// thumbnail_width/height: without them thumbnail_url is a 64px crop, which is
+	// what Creative Insights ends up showing whenever image_url is absent.
+	q.Set("fields", "id,campaign_id,creative.thumbnail_width(512).thumbnail_height(512){thumbnail_url,image_url,title,body,object_story_spec{link_data{message,name,picture},video_data{image_url,message,title}},asset_feed_spec{titles,bodies}}")
 	q.Set("limit", "200")
 	q.Set("access_token", token)
 	next := fmt.Sprintf("https://graph.facebook.com/%s/act_%s/ads?%s", metaGraphVersion, extID, q.Encode())
@@ -1910,7 +1917,6 @@ func (s *server) handleGoogleAdsCallback(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, appBase+"/settings/channels?connected=google", http.StatusTemporaryRedirect)
 }
 
-
 // -- Meta Ads OAuth -----------------------------------------
 
 func (s *server) handleMetaAdsConnect(w http.ResponseWriter, r *http.Request) {
@@ -2155,8 +2161,8 @@ func (s *server) handleTikTokAdsCallback(w http.ResponseWriter, r *http.Request)
 	var res struct {
 		Code int `json:"code"`
 		Data struct {
-			AccessToken          string `json:"access_token"`
-			AdvertiserIDs        []string `json:"advertiser_ids"`
+			AccessToken   string   `json:"access_token"`
+			AdvertiserIDs []string `json:"advertiser_ids"`
 		} `json:"data"`
 		Message string `json:"message"`
 	}
