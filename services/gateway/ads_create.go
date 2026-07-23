@@ -353,20 +353,6 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	launched := metaAdsetID != ""
-	if launched {
-		for _, c := range creatives {
-			if c.metaAdID == "" {
-				launched = false // resume: finish the missing ads
-				break
-			}
-		}
-	}
-	if launched {
-		http.Error(w, "already launched: the Meta campaign exists. Manage it from the Ads tab or Ads Manager.", http.StatusConflict)
-		return
-	}
-
 	// A failure at any step records WHERE it failed, sets ads_status='error',
 	// and leaves the ids created so far in place — retry resumes, not restarts.
 	fail := func(step string, err error) {
@@ -417,37 +403,41 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ── 2. Ad set (PAUSED, WhatsApp destination) ──
-	if metaAdsetID == "" {
-		geoLoc := map[string][]map[string]string{}
-		bucket := map[string]string{"city": "cities", "subcity": "subcities", "region": "regions", "neighborhood": "neighborhoods"}
-		for _, g := range geo {
-			f, ok := bucket[strings.ToLower(g.typ)]
-			if !ok {
-				f = "cities"
-			}
-			geoLoc[f] = append(geoLoc[f], map[string]string{"key": g.key})
+	// ── 2. Ad set: create when missing, UPDATE when it exists — a re-run of
+	// Launch after the first success is "apply changes" (budget, geo, umur),
+	// bukan error. Learning phase Meta di-reset saat targeting berubah; itu
+	// konsekuensi yang memang dipilih user dengan menekan Apply. ──
+	geoLoc := map[string][]map[string]string{}
+	bucket := map[string]string{"city": "cities", "subcity": "subcities", "region": "regions", "neighborhood": "neighborhoods"}
+	for _, g := range geo {
+		f, ok := bucket[strings.ToLower(g.typ)]
+		if !ok {
+			f = "cities"
 		}
-		targeting := map[string]any{
-			"geo_locations": geoLoc,
-			"age_min":       ageMin,
-		}
-		switch gender {
-		case "male":
-			targeting["genders"] = []int{1}
-		case "female":
-			targeting["genders"] = []int{2}
-		}
-		if advantage {
-			// Advantage+ audience: age_max menjadi HARD control dan Meta menolak
-			// nilai < 65 dengan (100/1870189) -- batas atas hanya boleh jadi
-			// "saran", bukan control. Jadi dengan Advantage+ aktif age_max tidak
-			// dikirim; age_min tetap sah sebagai control.
-			targeting["targeting_automation"] = map[string]int{"advantage_audience": 1}
-		} else if ageMax > 0 {
-			targeting["age_max"] = ageMax
-		}
+		geoLoc[f] = append(geoLoc[f], map[string]string{"key": g.key})
+	}
+	targeting := map[string]any{
+		"geo_locations": geoLoc,
+		"age_min":       ageMin,
+	}
+	switch gender {
+	case "male":
+		targeting["genders"] = []int{1}
+	case "female":
+		targeting["genders"] = []int{2}
+	}
+	if advantage {
+		// Advantage+ audience: age_max menjadi HARD control dan Meta menolak
+		// nilai < 65 dengan (100/1870189) -- batas atas hanya boleh jadi
+		// "saran", bukan control. Jadi dengan Advantage+ aktif age_max tidak
+		// dikirim; age_min tetap sah sebagai control.
+		targeting["targeting_automation"] = map[string]int{"advantage_audience": 1}
+	} else if ageMax > 0 {
+		targeting["age_max"] = ageMax
+	}
 
+	adsetUpdated := false
+	if metaAdsetID == "" {
 		buildForm := func(tgt map[string]any) url.Values {
 			tj, _ := json.Marshal(tgt)
 			po, _ := json.Marshal(map[string]string{"page_id": pageID})
@@ -488,6 +478,20 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		metaAdsetID = id
 		_, _ = s.pool.Exec(ctx,
 			`UPDATE campaigns SET meta_adset_id=$2, ads_last_error=NULL WHERE id=$1::uuid`, campaignID, id)
+	} else {
+		// Apply changes: hanya field yang aman diubah (budget + targeting).
+		// Status TIDAK dikirim — iklan yang sedang jalan tidak boleh ke-pause
+		// diam-diam oleh sebuah update.
+		tj, _ := json.Marshal(targeting)
+		form := url.Values{}
+		form.Set("daily_budget", strconv.Itoa(int(*monthlyBudget/30.0)))
+		form.Set("targeting", string(tj))
+		form.Set("access_token", t.token)
+		if err := metaPostForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, metaAdsetID), form); err != nil {
+			fail("update ad set", err)
+			return
+		}
+		adsetUpdated = true
 	}
 
 	// ── 3. One ad per creative (PAUSED) ──
@@ -623,8 +627,12 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, _ = s.pool.Exec(ctx,
-		`UPDATE campaigns SET ads_status='paused', ads_last_error=NULL,
-		        ads_launched_at=now(), ads_launched_by=$2::uuid WHERE id=$1::uuid`,
+		`UPDATE campaigns SET
+		   ads_status = CASE WHEN ads_status = 'active' THEN 'active' ELSE 'paused' END,
+		   ads_last_error = NULL,
+		   ads_launched_at = COALESCE(ads_launched_at, now()),
+		   ads_launched_by = COALESCE(ads_launched_by, $2::uuid)
+		 WHERE id=$1::uuid`,
 		campaignID, a.UserID)
 	detail := fmt.Sprintf("Launched by %s: campaign %s, ad set %s, %d/%d ad(s) created, all PAUSED",
 		a.Name, metaCampaignID, metaAdsetID, created, len(creatives))
@@ -642,6 +650,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		"meta_adset_id":    metaAdsetID,
 		"ads":              results,
 		"created":          created,
+		"updated_adset":    adsetUpdated,
 		"status":           "paused",
 	})
 }

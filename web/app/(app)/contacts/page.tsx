@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Search, UserPlus, Download, Pencil, ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight,
-  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check, SlidersHorizontal, Send,
+  Users, User, X, XCircle, Loader2, Tag as TagIcon, MoreVertical, MessageSquare, Trash2, Upload, ChevronDown, Eye, Ban, Copy, Check, SlidersHorizontal, Send, Building2,
   Infinity as InfinityIcon, Music2, Globe, MessageCircle,
 } from "lucide-react";
 
@@ -631,14 +631,13 @@ export default function ContactsPage() {
                   {show("campaign") && (
                   <td className="px-3 py-2 text-foreground/80 whitespace-nowrap">
                     {canEdit && c.conversation_id ? (
-                      <Select value={(c as any).campaign_id || ""} size="sm" className="w-[160px]"
-                        onChange={(v) => setCampaignFor(c, v)}
-                        options={[
-                          // Konsisten dengan dropdown di chat: opsi lepas hanya muncul
-                          // saat memang lagi ter-assign ke campaign, dengan label jelas.
-                          ...((c as any).campaign_id ? [{ value: "", label: t("inbox.removeFromCampaign") }] : []),
-                          ...campaignOptions,
-                        ]} />
+                      <CampaignAssignCell
+                        campaignName={c.campaign_name || null}
+                        campaignId={(c as any).campaign_id || null}
+                        campaigns={campaigns}
+                        onPick={(cid) => setCampaignFor(c, cid)}
+                        onRemove={() => setCampaignFor(c, "")}
+                      />
                     ) : (c.campaign_name || <span className="text-muted-foreground">-</span>)}
                   </td>
                   )}
@@ -932,6 +931,81 @@ function ContactModal({ state, allTags, onClose, onSaved }: {
           )}
         </div>
     </SidePanel>
+  );
+}
+
+// ── Inline campaign assign dropdown — kembaran AgentAssignCell, supaya dua
+// kolom bersebelahan itu terasa satu bahasa UI (permintaan eksplisit). ──
+function CampaignAssignCell({ campaignName, campaignId, campaigns, onPick, onRemove }: {
+  campaignName: string | null;
+  campaignId: string | null;
+  campaigns: Campaign[];
+  onPick: (campaignId: string) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className={cn(
+          "inline-flex items-center gap-1 px-2 h-6 rounded-md text-[11px] font-semibold max-w-[180px] outline-none transition-colors",
+          campaignName ? "bg-muted text-muted-foreground hover:bg-muted/70" : "bg-amber-50 text-amber-700 hover:bg-amber-100",
+        )}
+      >
+        <Building2 className="w-3 h-3 shrink-0" />
+        <span className="truncate">{campaignName || t("inbox.noCampaign")}</span>
+        <ChevronDown className={cn("w-3 h-3 shrink-0 opacity-60 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-50 w-60 max-h-[300px] flex flex-col rounded-lg border border-border bg-popover shadow-xl animate-scale-in">
+            <div className="p-2 border-b border-border shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("inbox.searchCampaign")}
+                  className="w-full h-8 pl-8 pr-2 rounded-md border border-input bg-background text-[13px] outline-none focus:border-primary" />
+              </div>
+            </div>
+            <div className="overflow-auto py-1 flex-1 min-h-0">
+              {(() => {
+                const q = query.trim().toLowerCase();
+                const matches = campaigns.filter((cp) => cp.name.toLowerCase().includes(q));
+                if (matches.length === 0) return <p className="text-center text-xs text-muted-foreground py-3">{t("inbox.noCampaigns")}</p>;
+                return matches.map((cp) => (
+                  <button
+                    key={cp.id}
+                    type="button"
+                    onClick={() => { onPick(cp.id); setOpen(false); setQuery(""); }}
+                    className={cn("w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-muted outline-none", cp.id === campaignId ? "bg-primary/[0.04]" : "")}
+                  >
+                    <Building2 className={cn("w-3.5 h-3.5 shrink-0", cp.id === campaignId ? "text-primary" : "opacity-70")} />
+                    <p className={cn("text-[13px] truncate flex-1", cp.id === campaignId ? "text-primary font-semibold" : "text-foreground/90")}>{cp.name}</p>
+                    {cp.id === campaignId && <Check className="w-3.5 h-3.5 shrink-0 text-primary" />}
+                  </button>
+                ));
+              })()}
+              {campaignId && (
+                <>
+                  <div className="my-1 border-t border-border" />
+                  <button
+                    type="button"
+                    onClick={() => { onRemove(); setOpen(false); setQuery(""); }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-amber-700 hover:bg-amber-50 outline-none"
+                  >
+                    <XCircle className="w-3.5 h-3.5 shrink-0" />{t("inbox.removeFromCampaign")}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

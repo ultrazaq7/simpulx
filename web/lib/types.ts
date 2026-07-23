@@ -906,6 +906,7 @@ export interface AdLaunchResult {
   meta_adset_id: string;
   ads: { creative_id: string; file_name: string; meta_ad_id?: string; error?: string }[];
   created: number;
+  updated_adset?: boolean; // rerun after launch = apply changes
   status: string;
 }
 

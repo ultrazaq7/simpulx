@@ -155,7 +155,7 @@ export default function RolesSettingsPage() {
       {ToastHost}
       {editing ? (
         /* ── Edit role ── */
-        <div className="max-w-[840px]">
+        <div>
           <button onClick={() => setEditing(null)} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
             <ChevronLeft className="w-4 h-4" /> {t("settings.roles2")}
           </button>

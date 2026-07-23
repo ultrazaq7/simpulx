@@ -362,58 +362,68 @@ function LaunchBar({ id, preview, notify, onRefresh }: {
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
+  const launched = preview.launched;
+
   async function launch() {
     setConfirming(false); setBusy(true);
     try {
       const r = await api.launchAds(id);
       const failed = r.ads.filter((x) => x.error);
+      const parts: string[] = [];
+      if (r.updated_adset) parts.push("budget & targeting updated");
+      if (r.created > 0) parts.push(`${r.created} ad(s) on Meta`);
       notify(failed.length
-        ? `Created paused with ${r.created} ad(s); ${failed.length} creative(s) failed: ${failed[0].error}`
-        : `Created in Meta, paused: campaign ${r.meta_campaign_id}, ${r.created} ad(s). Review & activate in Ads Manager.`,
+        ? `${parts.join(", ") || "Partial"}; ${failed.length} creative(s) failed: ${failed[0].error}`
+        : launched
+          ? `Applied to Meta: ${parts.join(", ") || "no changes needed"}.`
+          : `Created in Meta, paused: ${parts.join(", ")}. Review & activate in Ads Manager.`,
         failed.length ? "error" : "success");
       onRefresh();
     } catch (e) { notify(String(e), "error"); }
     finally { setBusy(false); }
   }
 
-  if (preview.launched) {
-    return (
-      <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3 flex items-start gap-2.5">
-        <Rocket className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-        <div className="text-[13px] text-foreground">
-          <p className="font-semibold">Created in Meta — paused, waiting for review in Ads Manager.</p>
-          <p className="text-muted-foreground tabular-nums">
-            Campaign {preview.meta_ids?.campaign} &middot; Ad set {preview.meta_ids?.adset}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-center gap-3 pt-1">
-      <button onClick={onRefresh} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">Refresh</button>
-      <div className="flex-1" />
-      {/* Two-step confirm instead of a modal: the second click states exactly what
-          will exist afterwards. Everything is created PAUSED, so the worst case
-          of a mis-click is a draft in Ads Manager, never spend. */}
-      {confirming ? (
-        <div className="flex items-center gap-2">
-          <span className="text-[12.5px] text-muted-foreground">Creates campaign + ad set + {preview.creatives.length} ad(s) in Meta, all paused.</span>
-          <button onClick={launch} disabled={busy}
-            className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}Confirm
-          </button>
-          <button onClick={() => setConfirming(false)} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">Cancel</button>
+    <div className="flex flex-col gap-2 pt-1">
+      {launched && (
+        <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3 flex items-start gap-2.5">
+          <Rocket className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+          <div className="text-[13px] text-foreground">
+            <p className="font-semibold">Live di Meta. Ubah budget, area, umur, atau tambah creative di atas, lalu Apply.</p>
+            <p className="text-muted-foreground tabular-nums">
+              Campaign {preview.meta_ids?.campaign} &middot; Ad set {preview.meta_ids?.adset}
+            </p>
+          </div>
         </div>
-      ) : (
-        <button onClick={() => setConfirming(true)} disabled={!preview.can_launch || busy}
-          title={preview.can_launch ? "" : "Resolve the items above first"}
-          className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50 disabled:cursor-not-allowed">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-          Launch ads (creates paused)
-        </button>
       )}
+      <div className="flex items-center gap-3">
+        <button onClick={onRefresh} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">Refresh</button>
+        <div className="flex-1" />
+        {/* Two-step confirm instead of a modal: the second click states exactly
+            what happens. First run creates everything PAUSED; after that the
+            same button APPLIES changes (adset update + new ads). */}
+        {confirming ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[12.5px] text-muted-foreground">
+              {launched
+                ? "Updates budget & targeting on the ad set; new creatives become paused ads."
+                : `Creates campaign + ad set + ${preview.creatives.length} ad(s) in Meta, all paused.`}
+            </span>
+            <button onClick={launch} disabled={busy}
+              className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}Confirm
+            </button>
+            <button onClick={() => setConfirming(false)} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">Cancel</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirming(true)} disabled={!preview.can_launch || busy}
+            title={preview.can_launch ? "" : "Resolve the items above first"}
+            className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50 disabled:cursor-not-allowed">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+            {launched ? "Apply changes to Meta" : "Launch ads (creates paused)"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
