@@ -786,6 +786,10 @@ func (s *server) handleAdsAdDelete(w http.ResponseWriter, r *http.Request) {
 		`UPDATE campaign_creatives SET meta_ad_id = NULL, status = 'uploaded'
 		  WHERE campaign_id = $1::uuid AND organization_id = $2::uuid AND meta_ad_id = $3`,
 		t.campaignID, t.orgID, adID)
+	// The deleted ad can no longer send CTWA leads; drop it from the routing list.
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE campaigns SET ad_source_ids = array_remove(COALESCE(ad_source_ids,'{}'), $2)
+		  WHERE id = $1::uuid`, t.campaignID, adID)
 	s.logAdsManage(r.Context(), a, t, "deleted_ad", "ad", adID,
 		fmt.Sprintf("Deleted ad %s on Meta by %s", adID, a.Name))
 	writeJSON(w, map[string]any{"deleted": true, "id": adID})

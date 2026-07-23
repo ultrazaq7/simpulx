@@ -574,6 +574,19 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		}
 		return true
 	}
+	// Every ad WE create is auto-registered as a CTWA source id on the campaign,
+	// so click-to-WhatsApp leads route here without anyone typing ad ids into the
+	// wizard (that field stays for ads made outside Simpulx). Idempotent append.
+	registerAdSource := func(adID string) {
+		if adID == "" {
+			return
+		}
+		_, _ = s.pool.Exec(ctx,
+			`UPDATE campaigns SET ad_source_ids = array_append(COALESCE(ad_source_ids,'{}'), $2)
+			  WHERE id = $1::uuid AND NOT ($2 = ANY(COALESCE(ad_source_ids,'{}')))`,
+			campaignID, adID)
+	}
+
 	igRestricted := false
 	restrictIGOnce := func(err error) bool {
 		if err == nil || !strings.Contains(err.Error(), "1815199") || igRestricted {
@@ -682,6 +695,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 				fail("create carousel ad", err)
 				return
 			}
+			registerAdSource(carouselAdID)
 			created++
 		} else {
 			// Apply changes: kartu dibangun ulang dari SEMUA gambar sekarang,
@@ -693,6 +707,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 				fail("update carousel ad", err)
 				return
 			}
+			registerAdSource(carouselAdID)
 			adsetUpdated = true
 		}
 		for _, cid2 := range memberIDs {
@@ -705,6 +720,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 			res := adResult{CreativeID: c.id, FileName: c.fileName}
 			if c.metaAdID != "" { // resume: already done in a previous attempt
 				res.MetaAdID = c.metaAdID
+				registerAdSource(c.metaAdID) // backfill: launches older than auto-registration
 				results = append(results, res)
 				created++
 				continue
@@ -802,6 +818,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			res.MetaAdID = adID
+			registerAdSource(adID)
 			created++
 			_, _ = s.pool.Exec(ctx,
 				`UPDATE campaign_creatives SET meta_ad_id=$2, status='paused' WHERE id=$1::uuid`, c.id, adID)

@@ -315,14 +315,19 @@ func (s *server) handleGenerateAdCopy(w http.ResponseWriter, r *http.Request) {
 // POST /api/campaigns/{id}/ads/copy/{copyId}/approve
 func (s *server) handleApproveAdCopy(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// Approving a NEW set auto-supersedes the old one. Verified in prod: a stale
+	// approved set (written before the campaign's segment/brand changed) blocked
+	// every newer draft with a "supersede first" error the UI had no button for,
+	// and the launch kept shipping the stale copy onto real ads.
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE campaign_ad_copy SET status='superseded'
+		  WHERE campaign_id=$1::uuid AND status='approved'`, r.PathValue("id"))
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE campaign_ad_copy SET status='approved', approved_at=now(), approved_by=$3::uuid
 		  WHERE id=$1::uuid AND campaign_id=$2::uuid AND status='draft'`,
 		r.PathValue("copyId"), r.PathValue("id"), a.UserID)
 	if err != nil {
-		// A unique index allows only one approved set per campaign, so this is the
-		// likely failure and it deserves a sentence rather than a constraint name.
-		http.Error(w, "another copy set is already approved for this campaign. Supersede it first.", http.StatusConflict)
+		http.Error(w, "could not approve this copy set: "+err.Error(), http.StatusConflict)
 		return
 	}
 	if tag.RowsAffected() == 0 {
