@@ -378,19 +378,30 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 			} `json:"error"`
 		}
 		// 512px thumbnail: the default 64px crop made creatives unrecognizable.
-		// image_url is the uncropped original when the creative has one.
-		u := fmt.Sprintf(
-			"https://graph.facebook.com/%s/%s/ads?fields=name,effective_status,creative.thumbnail_width(512).thumbnail_height(512){thumbnail_url,image_url}&limit=50&access_token=%s",
-			metaGraphVersion, cid, url.QueryEscape(t.token))
-		if err := metaGet(r.Context(), u, &payload); err != nil {
+		// image_url is the uncropped original when the creative has one. If Meta
+		// rejects the richer expansion for any reason, retry once with the plain
+		// shape that predates it — a smaller thumbnail beats an empty grid.
+		fetch := func(fields string) error {
+			payload.Data = nil
+			payload.Error = nil
+			u := fmt.Sprintf("https://graph.facebook.com/%s/%s/ads?fields=%s&limit=50&access_token=%s",
+				metaGraphVersion, cid, fields, url.QueryEscape(t.token))
+			if err := metaGet(r.Context(), u, &payload); err != nil {
+				return err
+			}
+			if payload.Error != nil {
+				return fmt.Errorf("%s", payload.Error.Message)
+			}
+			return nil
+		}
+		err := fetch("name,effective_status,creative.thumbnail_width(512).thumbnail_height(512){thumbnail_url,image_url}")
+		if err != nil {
+			s.log.Warn("ads live rich fetch failed, retrying plain", "campaign", cid, "err", err)
+			err = fetch("name,effective_status,creative{thumbnail_url}")
+		}
+		if err != nil {
 			if firstErr == "" {
 				firstErr = err.Error()
-			}
-			continue
-		}
-		if payload.Error != nil {
-			if firstErr == "" {
-				firstErr = payload.Error.Message
 			}
 			continue
 		}
@@ -423,6 +434,11 @@ func (s *server) handleCampaignAdsLive(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
+	}
+	if firstErr != "" {
+		// Surfaced in the response AND logged: a silent per-campaign fetch failure
+		// here shows up as "creatives missing" in the UI with nothing to debug from.
+		s.log.Warn("ads live fetch failed", "campaign", t.campaignName, "err", firstErr)
 	}
 	writeJSON(w, map[string]any{"status": overall, "ads": ads, "error": firstErr})
 }
@@ -489,10 +505,12 @@ func (s *server) handleAdPreviewHTML(w http.ResponseWriter, r *http.Request) {
 	u := fmt.Sprintf("https://graph.facebook.com/%s/%s/previews?ad_format=MOBILE_FEED_STANDARD&access_token=%s",
 		metaGraphVersion, r.PathValue("adId"), url.QueryEscape(t.token))
 	if err := metaGet(r.Context(), u, &payload); err != nil {
+		s.log.Warn("ad preview fetch failed", "ad", r.PathValue("adId"), "err", err)
 		http.Error(w, "could not load the ad preview: "+err.Error(), http.StatusBadGateway)
 		return
 	}
 	if payload.Error != nil {
+		s.log.Warn("ad preview refused", "ad", r.PathValue("adId"), "err", payload.Error.Message)
 		http.Error(w, "Meta refused the preview: "+payload.Error.Message, http.StatusBadGateway)
 		return
 	}

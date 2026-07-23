@@ -892,13 +892,15 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<"performance" | "setup">("performance");
   // Modal preview iklan: pakai render resmi Meta (iframe), bukan thumbnail.
-  const [adPreview, setAdPreview] = useState<{ adId: string; html?: string } | null>(null);
+  // Gagal fetch = modal TETAP terbuka menampilkan errornya; menutup diam-diam
+  // membuat "diklik gak muncul apa-apa" yang tidak bisa didebug siapa pun.
+  const [adPreview, setAdPreview] = useState<{ adId: string; html?: string; error?: string } | null>(null);
   const { confirm, ConfirmHost } = useConfirm();
 
   async function openAdPreview(adId: string) {
     setAdPreview({ adId });
     try { const r = await api.adPreviewHTML(id, adId); setAdPreview({ adId, html: r.html }); }
-    catch (e) { notify(String(e), "error"); setAdPreview(null); }
+    catch (e) { setAdPreview({ adId, error: String(e) }); }
   }
 
   function load() {
@@ -1055,6 +1057,11 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
           <p className="text-[12.5px] font-semibold text-foreground mb-2">
             Ads &amp; creatives <span className="font-normal text-muted-foreground">— live from Meta</span>
           </p>
+          {live.error && (
+            <p className="mb-2 text-[12px] text-amber-700 break-words">
+              <AlertTriangle className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />Sebagian data gagal diambil dari Meta: {live.error}
+            </p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             {live.ads.map((ad) => (
               <button key={ad.id} onClick={() => openAdPreview(ad.id)}
@@ -1133,9 +1140,13 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
               <p className="text-[12.5px] font-semibold text-foreground">Ad preview</p>
               <button onClick={() => setAdPreview(null)} className="p-1 rounded-md hover:bg-muted outline-none"><X className="w-4 h-4" /></button>
             </div>
-            {adPreview.html
-              ? <div dangerouslySetInnerHTML={{ __html: adPreview.html }} />
-              : <div className="w-[340px] h-[420px] grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}
+            {adPreview.error ? (
+              <p className="w-[340px] text-[12.5px] text-destructive break-words">{adPreview.error}</p>
+            ) : adPreview.html ? (
+              <div dangerouslySetInnerHTML={{ __html: adPreview.html }} />
+            ) : (
+              <div className="w-[340px] h-[420px] grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+            )}
           </div>
         </div>
       )}
