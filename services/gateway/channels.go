@@ -142,22 +142,39 @@ func (s *server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/channels/{id}/test — verify the connection.
-// In dev/mock mode this just marks the channel connected; with real
-// credentials it would ping the provider (Meta Graph API) first.
+//
+// For a WhatsApp channel with real credentials this is also the step that makes
+// the MANUAL path actually receive messages: it subscribes our app to the WABA
+// (`subscribed_apps`). Embedded signup does that during provisioning, but a
+// manually entered channel had no step that did — so it could sit "connected"
+// while inbound webhooks never arrived. Best-effort: a failure surfaces as a
+// warning, it does not block marking the channel connected (dev/mock has no
+// credentials at all).
 func (s *server) handleTestChannel(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	tag, err := s.pool.Exec(r.Context(),
-		`UPDATE channels SET status='connected', connected_at=now(), updated_at=now()
-		  WHERE id=$1 AND organization_id=$2`, r.PathValue("id"), a.OrgID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if tag.RowsAffected() == 0 {
+	var typ, wabaID, token string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT type, COALESCE(waba_id,''), COALESCE(access_token,'')
+		   FROM channels WHERE id=$1 AND organization_id=$2`,
+		r.PathValue("id"), a.OrgID).Scan(&typ, &wabaID, &token); err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	writeJSON(w, map[string]any{"status": "connected"})
+
+	warning := ""
+	if typ == "whatsapp" && wabaID != "" && token != "" {
+		if _, err := s.metaPost(r.Context(), fmt.Sprintf("%s/%s/subscribed_apps", graphBase, wabaID), token, map[string]any{}); err != nil {
+			warning = "subscribed_apps: " + err.Error()
+		}
+	}
+
+	if _, err := s.pool.Exec(r.Context(),
+		`UPDATE channels SET status='connected', connected_at=now(), updated_at=now()
+		  WHERE id=$1 AND organization_id=$2`, r.PathValue("id"), a.OrgID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"status": "connected", "warning": warning})
 }
 
 // nullableJSON returns nil for an empty payload so COALESCE keeps the old value.

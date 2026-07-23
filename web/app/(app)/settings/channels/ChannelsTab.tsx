@@ -75,7 +75,14 @@ export function ChannelsTab() {
   useEffect(() => { setPage(1); }, [query, filter]);
 
   async function test(c: Channel) {
-    try { await api.testChannel(c.id); notify(t("settings.connectionVerified")); load(); }
+    try {
+      const r = await api.testChannel(c.id);
+      // Warning = connected locally but a Meta step failed (e.g. webhook
+      // subscribe); hiding it would leave an inbox that silently receives nothing.
+      if (r.warning) notify(`${t("settings.connectionVerified")} — ${r.warning}`, "error");
+      else notify(t("settings.connectionVerified"));
+      load();
+    }
     catch (e) { notify(String(e), "error"); }
   }
   async function toggleActive(c: Channel) {

@@ -642,7 +642,7 @@ export const api = {
   updateChannel: (id: string, patch: { name?: string; is_active?: boolean; display_id?: string; access_token?: string; config?: Record<string, unknown>; calling_enabled?: boolean }) =>
     req(`/api/channels/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteChannel: (id: string) => req(`/api/channels/${id}`, { method: "DELETE" }),
-  testChannel: (id: string) => req<{ status: string }>(`/api/channels/${id}/test`, { method: "POST" }),
+  testChannel: (id: string) => req<{ status: string; warning?: string }>(`/api/channels/${id}/test`, { method: "POST" }),
   // Real Meta Embedded Signup: the FB popup returns code + ids, the gateway
   // exchanges the code, subscribes the app to the WABA and registers the number.
   embeddedSignup: (input: { code: string; waba_id: string; phone_number_id: string; name?: string }) =>
