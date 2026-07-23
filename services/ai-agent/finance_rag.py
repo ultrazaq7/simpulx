@@ -231,33 +231,21 @@ async def _catalog_from_table(pool, campaign_id, model: str,
         # every XFORCE row (X sorts last) was cut off: turn 1 asked about Xforce and
         # got Destinator. Rows collapse to one entry per variant right after this, and
         # the injection is capped at 14, so a wide fetch costs nothing in prompt size.
+        # SELALU ambil SELURUH katalog campaign. Model TIDAK dipakai untuk
+        # MEMFILTER (itu yang membuat DAFTAR LENGKAP hanya berisi 1 model dan bot
+        # yakin "cuma jual Xpander" saat lead_fields.model=Xpander padahal katalog
+        # penuh). Model hanya untuk RANKING di bawah (_variant_hits), sehingga
+        # daftar tetap lengkap dan model yang diminta naik ke atas untuk harga.
+        _ = (like, needle)  # dipertahankan agar tanda tangan/pemanggil tidak berubah
         rows = await conn.fetch(
             """SELECT item_name, variant_name, location_name, category_type,
                       headline_price, attributes
                  FROM campaign_catalog
                 WHERE campaign_id = $1::uuid
-                  AND ($2 = '%' OR item_name ILIKE $2 OR variant_name ILIKE $2
-                       OR ($3 <> '' AND $3 ILIKE '%' || item_name || '%'))
                 ORDER BY item_name NULLS LAST, variant_name NULLS LAST, headline_price ASC NULLS LAST
                 LIMIT 3000""",
-            campaign_id, like, needle,
+            campaign_id,
         )
-        if not rows and needle:
-            # Needle model yang stale/naratif ("Triton Varian Tertinggi, Destinator,
-            # Sempat Tanya Xpander") tidak boleh membutakan bot: kalau filter model
-            # tidak kena satu row pun, ambil SELURUH katalog campaign dan biarkan
-            # ranking query di bawah mengangkat model yang benar. Return None di
-            # sini membuat bot MENYANGKAL produk yang ada (kasus live: "Destinator
-            # belum ada di katalog kami" padahal 3 tipe Destinator ada di katalog).
-            rows = await conn.fetch(
-                """SELECT item_name, variant_name, location_name, category_type,
-                          headline_price, attributes
-                     FROM campaign_catalog
-                    WHERE campaign_id = $1::uuid
-                    ORDER BY item_name NULLS LAST, variant_name NULLS LAST, headline_price ASC NULLS LAST
-                    LIMIT 3000""",
-                campaign_id,
-            )
     if not rows:
         return None
     rows = list(rows)
@@ -299,6 +287,9 @@ async def _catalog_from_table(pool, campaign_id, model: str,
         # Pesan terakhir sering cuma "yang tertinggi" / "simulasi lengkap" tanpa
         # nama model; model yang dimaksud ada di pesan-pesan sebelumnya.
         hits = _variant_hits(recent_text, rows)
+    if not hits and model:
+        # Fallback terakhir: model dari lead_fields (mis. sudah diekstrak turn lalu).
+        hits = _variant_hits(model, rows)
     if hits:
         if city:
             cl = city.strip().lower()
@@ -337,9 +328,11 @@ async def _catalog_from_table(pool, campaign_id, model: str,
     catalog_lines = [f"[KATALOG CAMPAIGN INI -- DAFTAR LENGKAP ({len(_names)} varian yang dijual)]:"]
     catalog_lines += [f"  - {nm}" for nm in _names]
     catalog_lines.append(
-        "CATATAN KATALOG: daftar di atas LENGKAP dan satu-satunya yang dijual di campaign ini. "
-        "Kalau customer menyebut model yang TIDAK ada di daftar, JANGAN tawarkan model lain "
-        "sebagai gantinya dan JANGAN mengarang; tanyakan maksudnya atau tawarkan cek ke tim.")
+        "CATATAN KATALOG: SEMUA item di daftar di atas kamu jual dan siap kamu bantu - termasuk kalau "
+        "customer minta daftar lengkap atau pindah ke model lain yang ADA di daftar; JANGAN pernah bilang "
+        "campaign cuma fokus/khusus satu model kalau daftarnya lebih dari satu. Hanya kalau customer "
+        "menyebut model yang BENAR-BENAR tidak ada di daftar: jangan mengarang, tanyakan maksudnya atau "
+        "tawarkan cek ke tim.")
 
     # Prices are the expensive AND the risky part: quoting a number nobody asked for is
     # anchoring. Until the customer actually asks, the catalog ships as names only.

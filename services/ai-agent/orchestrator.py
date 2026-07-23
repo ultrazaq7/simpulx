@@ -806,12 +806,16 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
         # business. Verified in prod (Xforce campaign, lead asked about an Avanza):
         # the old wording made the model claim "we only sell Xforce" (false for a
         # dealer) and send the lead to "another dealer" (throwing the lead away).
-        ctx += (f", on campaign '{row['campaign_name']}'. This lead came in through THIS campaign's ad, so "
-                f"the campaign's product/promo is the scope of this chat. If the lead asks about a product "
-                f"outside that scope, say this program/promo is specifically for the campaign's product; do "
-                f"NOT claim the business sells nothing else, and NEVER refer the lead to another dealer, "
-                f"store, or competitor. Keep the lead engaged: offer the campaign product as an alternative "
-                f"or offer to have the team help with their other need.")
+        ctx += (f", on campaign '{row['campaign_name']}'. SCOPE IS DEFINED BY THE PRODUCT CATALOG in this "
+                f"prompt (if one is provided): you sell EVERY model, type, and item listed there. All of "
+                f"them are fully in scope - help with ANY of them, including giving the full lineup or "
+                f"switching to another model the moment the customer asks. It is a hard error to claim the "
+                f"campaign is limited to one model/product when the catalog lists several, or to refuse a "
+                f"model that appears in the catalog. ONLY items genuinely NOT in the catalog (a different "
+                f"brand, or something not listed) are out of scope: for those, do NOT claim the business "
+                f"sells nothing else and NEVER refer the lead to a competitor - say you will check with the "
+                f"team. If NO catalog is provided, the campaign's own product/brand is the scope. Always "
+                f"help with what the customer actually asked.")
         if row["segment"] == "automotive":
             # An ad-click lead asking about another (often used/older) car usually
             # means a trade-in, not the wrong dealer. Probe it instead of bouncing.
