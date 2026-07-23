@@ -634,6 +634,8 @@ export const api = {
       { method: "POST", body: JSON.stringify(body) }),
   deleteMetaAd: (id: string, adId: string) =>
     req<{ deleted: boolean }>(`/api/campaigns/${id}/ads/ad/${adId}`, { method: "DELETE" }),
+  deleteMetaCampaign: (id: string, metaCampaignId: string) =>
+    req<{ deleted: boolean }>(`/api/campaigns/${id}/ads/campaign/${metaCampaignId}`, { method: "DELETE" }),
   editAdCreative: (id: string, adId: string, body: { creative_id?: string; message?: string; headline?: string; description?: string }) =>
     req<{ ok: boolean }>(`/api/campaigns/${id}/ads/ad/${adId}/creative`,
       { method: "POST", body: JSON.stringify(body) }),

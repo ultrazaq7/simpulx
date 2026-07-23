@@ -2452,5 +2452,9 @@
   "ads.partnershipCode": "Partnership ad code (optional, from the partner's IG app)",
   "ads.partnershipNote": "Needs the app permission instagram_branded_content_ads_brand (Meta App Review). Until it is granted, Meta refuses the partnership ad at launch and the reason shows as a warning; regular ads are not affected.",
   "ads.partnershipSaved": "Partnership settings saved",
-  "ads.suggestAi": "AI suggestions"
+  "ads.suggestAi": "AI suggestions",
+  "ads.deleteCampaignTitle": "Delete this Meta campaign?",
+  "ads.deleteCampaignMsg": "Deletes the campaign on Meta INCLUDING all its ad sets and ads. This cannot be undone. Your uploaded creatives stay in Simpulx, and the next Launch builds a fresh campaign.",
+  "ads.campaignDeleted": "Meta campaign deleted",
+  "ads.uploadNew": "Upload new"
 }

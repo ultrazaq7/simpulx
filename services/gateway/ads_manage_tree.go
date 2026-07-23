@@ -650,6 +650,65 @@ func (s *server) handleAdsetSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true})
 }
 
+// DELETE /api/campaigns/{id}/ads/campaign/{entityId} — removes the whole Meta
+// campaign (ad sets + ads included) for "salah buat" recovery. Simpulx-side
+// state is reset so the next Launch builds a fresh campaign from scratch;
+// uploaded creatives stay and need no re-upload.
+func (s *server) handleAdsCampaignDelete(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	t, msg, code := s.resolveAdsTarget(r.Context(), a.OrgID, r.PathValue("id"))
+	if msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+	cid := r.PathValue("entityId")
+	if _, msg, code := s.verifyAdsEntity(r.Context(), t, "campaign", cid); msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+	if err := metaDelete(r.Context(), cid, t.token); err != nil {
+		http.Error(w, "Meta rejected the change: "+err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	// Scrub routing ids for the ads that lived under this campaign.
+	rows, err := s.pool.Query(r.Context(),
+		`SELECT DISTINCT meta_ad_id FROM campaign_creatives
+		  WHERE campaign_id = $1::uuid AND meta_ad_id IS NOT NULL`, t.campaignID)
+	if err == nil {
+		var ids []string
+		for rows.Next() {
+			var id string
+			if rows.Scan(&id) == nil && id != "" {
+				ids = append(ids, id)
+			}
+		}
+		rows.Close()
+		for _, adID := range ids {
+			_, _ = s.pool.Exec(r.Context(),
+				`UPDATE campaigns SET ad_source_ids = array_remove(COALESCE(ad_source_ids,'{}'), $2)
+				  WHERE id = $1::uuid`, t.campaignID, adID)
+		}
+	}
+	// Reset launch state: meta ids cleared, launched flag off, creatives unlinked
+	// (assets stay). The next Launch is a clean create, not a resume.
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE campaigns SET meta_campaign_id=NULL, meta_adset_id=NULL, ads_status=NULL,
+		        ads_last_error=NULL, ads_launched_at=NULL, ads_launched_by=NULL,
+		        partnership_meta_ad_id=NULL, updated_at=now()
+		  WHERE id = $1::uuid AND meta_campaign_id = $2`, t.campaignID, cid)
+	_, _ = s.pool.Exec(r.Context(),
+		`UPDATE campaign_creatives SET meta_ad_id = NULL, status = 'uploaded'
+		  WHERE campaign_id = $1::uuid`, t.campaignID)
+	// Mapped external campaign: drop the mapping so the tree stops listing it.
+	_, _ = s.pool.Exec(r.Context(),
+		`DELETE FROM ad_campaign_campaigns m USING ad_campaigns ac
+		  WHERE m.ad_campaign_id = ac.id AND m.campaign_id = $1::uuid AND ac.external_id = $2`,
+		t.campaignID, cid)
+	s.logAdsManage(r.Context(), a, t, "deleted_campaign", "campaign", cid,
+		fmt.Sprintf("Deleted Meta campaign %s (with its ad sets and ads) by %s", cid, a.Name))
+	writeJSON(w, map[string]any{"deleted": true, "id": cid})
+}
+
 // POST /api/campaigns/{id}/ads/ad/{entityId}/creative  {"creative_id":"<uuid>"}
 // Swaps a LIVE single-format ad's creative in place (the same mechanism the
 // carousel apply path uses): build a new adcreative from one of the campaign's

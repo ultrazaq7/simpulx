@@ -718,9 +718,70 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 	} else {
 		for _, c := range creatives {
 			res := adResult{CreativeID: c.id, FileName: c.fileName}
-			if c.metaAdID != "" { // resume: already done in a previous attempt
+			if c.metaAdID != "" { // resume: ad exists; keep it, but SYNC its copy.
 				res.MetaAdID = c.metaAdID
 				registerAdSource(c.metaAdID) // backfill: launches older than auto-registration
+				// Approved copy is the contract for what runs. Verified in prod: a
+				// stale approved set left a live ad advertising the WRONG product
+				// even after the right copy was approved, because nothing ever
+				// rebuilt existing creatives. Compare live text vs approved; only a
+				// real difference rebuilds (no-op applies never reset the creative).
+				var live struct {
+					Creative *struct {
+						Body  string `json:"body"`
+						Title string `json:"title"`
+					} `json:"creative"`
+				}
+				cu := fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=creative{body,title}&access_token=%s",
+					metaGraphVersion, c.metaAdID, url.QueryEscape(t.token))
+				if metaGet(ctx, cu, &live) == nil && live.Creative != nil &&
+					(strings.TrimSpace(live.Creative.Body) != strings.TrimSpace(message) ||
+						strings.TrimSpace(live.Creative.Title) != strings.TrimSpace(headline)) {
+					spec := map[string]any{"page_id": pageID}
+					cta := map[string]any{"type": "WHATSAPP_MESSAGE", "value": map[string]string{"app_destination": "WHATSAPP"}}
+					ok := false
+					switch {
+					case c.mediaType == "image" && c.imageHash != "":
+						spec["link_data"] = map[string]any{
+							"message": message, "name": headline, "description": desc,
+							"link": "https://api.whatsapp.com/send", "image_hash": c.imageHash,
+							"call_to_action": cta,
+						}
+						ok = true
+					case c.mediaType == "video" && c.videoID != "":
+						if thumb, terr := metaVideoThumbnail(ctx, c.videoID, t.token); terr == nil {
+							spec["video_data"] = map[string]any{
+								"video_id": c.videoID, "message": message, "title": headline,
+								"image_url": thumb, "call_to_action": cta,
+							}
+							ok = true
+						}
+					}
+					if ok {
+						sj, _ := json.Marshal(spec)
+						cf := url.Values{}
+						cf.Set("name", t.campaignName+" - "+c.fileName)
+						cf.Set("object_story_spec", string(sj))
+						cf.Set("access_token", t.token)
+						ncID, cerr := metaPostID(ctx, base+"/adcreatives", cf)
+						if cerr != nil && igOverrideOnce(cf, cerr) {
+							ncID, cerr = metaPostID(ctx, base+"/adcreatives", cf)
+						}
+						if cerr == nil {
+							uf := url.Values{}
+							uf.Set("creative", `{"creative_id":"`+ncID+`"}`)
+							uf.Set("access_token", t.token)
+							cerr = metaPostForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, c.metaAdID), uf)
+						}
+						if cerr != nil {
+							res.Error = "copy refresh failed: " + cerr.Error()
+							s.log.Warn("ads apply: copy refresh failed", "ad", c.metaAdID, "err", cerr)
+						} else {
+							adsetUpdated = true
+							s.log.Info("ads apply: live ad copy refreshed to approved set", "ad", c.metaAdID)
+						}
+					}
+				}
 				results = append(results, res)
 				created++
 				continue

@@ -145,6 +145,25 @@ export default function ManageAdsPanel({ id, notify }: {
     }
   }
 
+  async function deleteCampaign(metaCampaignId: string, name: string) {
+    const okd = await confirm({
+      title: t("ads.deleteCampaignTitle"),
+      message: `${name} - ${t("ads.deleteCampaignMsg")}`,
+      danger: true, confirmLabel: t("common.delete"),
+    });
+    if (!okd) return;
+    setPending((p) => ({ ...p, [metaCampaignId]: true }));
+    try {
+      await api.deleteMetaCampaign(id, metaCampaignId);
+      notify(t("ads.campaignDeleted"), "success");
+      load(true);
+    } catch (e) {
+      notify(String(e), "error");
+    } finally {
+      setPending((p) => { const n = { ...p }; delete n[metaCampaignId]; return n; });
+    }
+  }
+
   async function deleteAd(adId: string, name: string) {
     const okd = await confirm({
       title: t("ads.deleteAdTitle"),
@@ -292,9 +311,14 @@ export default function ManageAdsPanel({ id, notify }: {
                   <NameCell level="campaign" name={c.name} depth={0}
                     hasChildren childKey={`c:${c.id}`}
                     extraActions={
-                      <button onClick={() => setCampDrawer(c)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.editCampaignMeta")}>
-                        <Pencil className="w-3 h-3 text-muted-foreground" />
-                      </button>
+                      <>
+                        <button onClick={() => setCampDrawer(c)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("ads.editCampaignMeta")}>
+                          <Pencil className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                        <button onClick={() => deleteCampaign(c.id, c.name)} className="p-0.5 rounded hover:bg-muted outline-none" aria-label={t("common.delete")}>
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </button>
+                      </>
                     } />
                   <td className="px-2 py-1.5"><DeliveryChip status={c.effective_status} /></td>
                   <td className="px-2 py-1.5 text-[11.5px] text-muted-foreground">
@@ -717,9 +741,26 @@ function CreativePicker({ campaignId, adName, onPick, onClose }: {
 }) {
   const { t } = useI18n();
   const [rows, setRows] = useState<CreativeRow[] | null>(null);
+  const [uploading, setUploading] = useState(false);
   useEffect(() => {
     api.listCreatives(campaignId).then(setRows).catch(() => setRows([]));
   }, [campaignId]);
+  // Upload materi BARU langsung dari picker (add, bukan cuma pilih yang ada);
+  // sukses = langsung terpilih untuk iklan ini.
+  async function uploadNew(f: File) {
+    setUploading(true);
+    const fd = new FormData(); fd.append("file", f);
+    try {
+      const r = await fetch(`/api/campaigns/${campaignId}/creatives`, {
+        method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("simpulx_token")}` }, body: fd,
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      if (d?.id) onPick(d.id);
+    } catch {
+      setUploading(false);
+    }
+  }
   return (
     <div className="fixed inset-0 z-[80] bg-black/50 grid place-items-center p-4" onClick={onClose}>
       <div className="bg-card rounded-xl border border-border p-4 w-full max-w-md max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
@@ -734,6 +775,14 @@ function CreativePicker({ campaignId, adName, onPick, onClose }: {
           <p className="text-[12.5px] text-muted-foreground py-6 text-center">{t("ads.swapNone")}</p>
         ) : (
           <div className="grid grid-cols-3 gap-2">
+            <label className={cn("rounded-lg border border-dashed border-border grid place-items-center h-[6.75rem] cursor-pointer hover:border-primary transition-colors text-center",
+              uploading && "opacity-60 pointer-events-none")}>
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : (
+                <span className="text-[11px] font-semibold text-muted-foreground px-2">+ {t("ads.uploadNew")}</span>
+              )}
+              <input type="file" accept="image/*,video/*" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadNew(f); }} />
+            </label>
             {rows.map((c) => (
               <button key={c.id} onClick={() => onPick(c.id)}
                 className="rounded-lg border border-border overflow-hidden hover:border-primary transition-colors outline-none text-left">

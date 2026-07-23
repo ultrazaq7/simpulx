@@ -2452,5 +2452,9 @@
   "ads.partnershipCode": "Kode partnership ad (opsional, dari aplikasi IG partner)",
   "ads.partnershipNote": "Butuh permission app instagram_branded_content_ads_brand (Meta App Review). Sebelum di-approve, Meta menolak iklan partnership saat launch dan alasannya tampil sebagai warning; iklan biasa tidak terpengaruh.",
   "ads.partnershipSaved": "Pengaturan partnership disimpan",
-  "ads.suggestAi": "Saran AI"
+  "ads.suggestAi": "Saran AI",
+  "ads.deleteCampaignTitle": "Hapus campaign Meta ini?",
+  "ads.deleteCampaignMsg": "Menghapus campaign di Meta TERMASUK semua ad set dan iklannya. Tidak bisa dibatalkan. Materi yang diupload tetap di Simpulx, dan Launch berikutnya membuat campaign baru dari awal.",
+  "ads.campaignDeleted": "Campaign Meta dihapus",
+  "ads.uploadNew": "Upload baru"
 }
