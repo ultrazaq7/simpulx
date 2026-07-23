@@ -552,7 +552,7 @@ export default function ContactsPage() {
               {loading ? Array(8).fill(0).map((_, i) => (
                 <tr key={i}><td colSpan={colCount} className="px-3 py-2"><div className="h-9 skeleton rounded-md" /></td></tr>
               )) : paged.length === 0 ? (
-                {/* h-[60vh] + default align-middle = pesan kosong di tengah area tabel, bukan nempel header */}
+                // h-[60vh] + default align-middle = pesan kosong di tengah area tabel, bukan nempel header
                 <tr><td colSpan={colCount} className="text-center h-[60vh]">
                   <div className="w-12 h-12 rounded-xl bg-muted grid place-items-center mx-auto mb-3"><Users className="w-6 h-6 text-muted-foreground/50" /></div>
                   <p className="font-semibold text-foreground mb-0.5">{t("contacts.noContactsFound")}</p>
