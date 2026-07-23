@@ -729,6 +729,12 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 	form.Set("object_story_spec", string(ss))
 	form.Set("access_token", t.token)
 	creativeID, err := metaPostID(r.Context(), base+"/adcreatives", form)
+	if err != nil && strings.Contains(err.Error(), "1815199") {
+		// IG belum di-assign ke ad account: pakai identitas Page-backed Instagram
+		// supaya swap tetap jalan (fix yang sama dengan jalur launch).
+		form.Set("use_page_actor_override", "true")
+		creativeID, err = metaPostID(r.Context(), base+"/adcreatives", form)
+	}
 	if err != nil {
 		http.Error(w, "Meta rejected the change: create creative: "+err.Error(), http.StatusUnprocessableEntity)
 		return

@@ -557,8 +557,26 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 	// buntu, placement dibatasi ke Facebook+Messenger SEKALI lalu dicoba ulang;
 	// warning-nya dibawa ke UI supaya user tahu IG sedang tidak ikut tayang.
 	igWarning := ""
+	// (200/1815199) terjadi saat CREATE CREATIVE, dan Meta memvalidasi akun IG
+	// milik Page di level creative - membatasi placement ad set saja TIDAK
+	// menyembuhkannya (terbukti di prod: retry setelah restrict tetap 1815199).
+	// Jalur penyembuh yang benar: use_page_actor_override=true pada creative,
+	// yang memakai identitas Page-backed Instagram sehingga tidak butuh
+	// assignment akun IG sama sekali dan placement IG tetap jalan.
+	pbiaWarning := "Iklan tayang di Instagram memakai identitas Page (Page-backed) karena akun Instagram belum di-assign ke ad account. Assign di Business Settings > Instagram accounts > Connected assets kalau mau memakai akun IG aslinya."
+	igOverrideOnce := func(form url.Values, err error) bool {
+		if err == nil || !strings.Contains(err.Error(), "1815199") {
+			return false
+		}
+		form.Set("use_page_actor_override", "true")
+		if igWarning == "" {
+			igWarning = pbiaWarning
+		}
+		return true
+	}
+	igRestricted := false
 	restrictIGOnce := func(err error) bool {
-		if err == nil || !strings.Contains(err.Error(), "1815199") || igWarning != "" {
+		if err == nil || !strings.Contains(err.Error(), "1815199") || igRestricted {
 			return false
 		}
 		upd := map[string]any{}
@@ -575,6 +593,7 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		if e2 := metaPostForm(ctx, fmt.Sprintf("https://graph.facebook.com/%s/%s", metaGraphVersion, metaAdsetID), form); e2 != nil {
 			return false
 		}
+		igRestricted = true
 		igWarning = "Instagram placement dimatikan: akun Instagram Page ini belum di-assign ke ad account. Assign di Business Settings > Instagram accounts untuk ikut tayang di IG."
 		s.log.Warn("ads launch: IG not authorized, placements restricted to facebook+messenger", "campaign", campaignID)
 		return true
@@ -641,6 +660,9 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		form.Set("object_story_spec", string(ss))
 		form.Set("access_token", t.token)
 		creativeID, err := metaPostID(ctx, base+"/adcreatives", form)
+		if err != nil && igOverrideOnce(form, err) {
+			creativeID, err = metaPostID(ctx, base+"/adcreatives", form)
+		}
 		if err != nil && restrictIGOnce(err) {
 			creativeID, err = metaPostID(ctx, base+"/adcreatives", form)
 		}
@@ -755,6 +777,9 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 			form.Set("object_story_spec", string(ss))
 			form.Set("access_token", t.token)
 			creativeID, err := metaPostID(ctx, base+"/adcreatives", form)
+			if err != nil && igOverrideOnce(form, err) {
+				creativeID, err = metaPostID(ctx, base+"/adcreatives", form)
+			}
 			if err != nil && restrictIGOnce(err) {
 				creativeID, err = metaPostID(ctx, base+"/adcreatives", form)
 			}
