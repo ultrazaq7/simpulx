@@ -396,3 +396,19 @@ footer.site .f-bottom { border-top: 1px solid rgba(255,255,255,.08); padding: 22
   .lang-tg { align-self: stretch; justify-content: center; margin-top: 8px; }
   .lang-tg a { flex: 1; text-align: center; }
 }
+
+/* ── Dropdown panel: jangkar kiri + clamp viewport (menghindari kepotong) ── */
+.dd-panel { left: 0; right: auto; transform: translateY(6px); max-width: calc(100vw - 24px); }
+.nav-dd:hover .dd-panel, .nav-dd:focus-within .dd-panel, .nav-dd.open .dd-panel { transform: translateY(0); }
+.nav-dd:last-of-type .dd-panel { left: auto; right: 0; }
+.dd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 520px; max-width: 100%; }
+.dd-list { grid-template-columns: 1fr; width: 230px; max-width: 100%; }
+@media (max-width: 860px) {
+  .dd-panel, .nav-dd:last-of-type .dd-panel {
+    position: static !important; transform: none !important;
+    left: auto !important; right: auto !important;
+    width: 100% !important; max-width: none !important;
+    border: none; box-shadow: none;
+  }
+  .dd-grid, .dd-list { width: 100%; grid-template-columns: 1fr; }
+}
