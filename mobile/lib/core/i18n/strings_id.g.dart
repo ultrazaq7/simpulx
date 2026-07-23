@@ -102,7 +102,7 @@ const Map<String, String> kStringsId = {
   'Attachment': 'Lampiran',
   'Aug': 'Agu',
   'Avg response': 'Rata-rata respons',
-  'Avg RT': 'Rata-rata RT',
+  'Avg RT': 'Rata2 RT',
   'Awaiting permission': 'Menunggu izin',
   'Back to sign in': 'Kembali ke masuk',
   'Blacklisted': 'Daftar hitam',
@@ -423,7 +423,7 @@ const Map<String, String> kStringsId = {
   'Your session has expired. Please sign in again.': 'Sesi Anda telah berakhir. Silakan masuk lagi.',
   // Chat quick-filter + interest split
   'Awaiting reply': 'Menunggu balasan',
-  'Unclassified': 'Belum diklasifikasi',
+  'Unclassified': 'Belum dinilai',
   // Lost-reason enum labels (formatReason output) — dashboard Lost Reasons card
   'Not interested': 'Tidak tertarik',
   'Spam junk': 'Spam',

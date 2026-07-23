@@ -230,6 +230,11 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   Future<void> _initPush(GoRouter router) async {
     final push = ref.read(pushServiceProvider);
     await push.requestPermission();
+    // Register the push token FIRST and off the critical path. It used to sit
+    // below the mic + full-screen-intent permission awaits, so anything that
+    // blocked or threw there meant the token was never sent — a device that
+    // silently receives no notifications at all, with nothing in the logs.
+    unawaited(_registerPushToken());
     // Prime the microphone permission NOW, while the app is in the foreground
     // just after login. Calls arrive via push and are answered from CallKit /
     // the lock screen, where iOS cannot present a permission prompt — so if this
@@ -252,12 +257,6 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     // so CallKitService.init() below never ran and the VoIP token was NEVER
     // registered (prod had zero ios_voip tokens, so background/lockscreen calls
     // never rang). Never let the FCM path block VoIP registration.
-    // Register the FCM token, retrying a few times. This used to be a single
-    // best-effort attempt whose failure was swallowed, so a token that didn't
-    // register (getToken() not ready yet, or the POST failing) left the device
-    // permanently unreachable by push with nothing in the logs to show for it —
-    // prod had no new token rows for days while pushes went to dead ones.
-    unawaited(_registerPushToken());
     try {
       push.onTokenRefresh.listen(
         (t) => repo.registerPushToken(token: t, platform: push.platform, deviceId: deviceId),
@@ -285,10 +284,6 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
   /// few times with backoff, logs loudly, and is safe to call again (the server
   /// keys rows by device id, so re-registering replaces rather than duplicates).
   Future<void> _registerPushToken() async {
-    if (ref.read(sessionControllerProvider).status !=
-        SessionStatus.authenticated) {
-      return; // no session to attach the token to; resume will retry
-    }
     final push = ref.read(pushServiceProvider);
     final repo = ref.read(authRepositoryProvider);
     final deviceId = await ref.read(secureStoreProvider).deviceId();

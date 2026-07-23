@@ -209,17 +209,46 @@ class ChatThreadController extends ChangeNotifier {
     );
   }
 
-  /// Share a pinned location (type=location). No optimistic bubble: the persisted
-  /// message arrives over the socket and renders the map card in place.
+  /// Share a pinned location (type=location). Draws the map card straight away
+  /// like any other send — waiting for the round-trip left the thread empty for a
+  /// beat, which reads as a dropped message. The realtime `message.persisted`
+  /// reconciles this bubble by its location payload.
   Future<void> sendLocation(double latitude, double longitude,
       {String? name, String? address}) async {
-    await ref.read(chatRemoteDataSourceProvider).sendLocation(
-          conversationId,
-          latitude: latitude,
-          longitude: longitude,
-          name: name,
-          address: address,
-        );
+    final tempId = 'local-${DateTime.now().microsecondsSinceEpoch}';
+    _emit(_withMessages([
+      ..._state.messages,
+      Message(
+        id: tempId,
+        direction: MessageDirection.outbound,
+        senderType: MessageSenderType.agent,
+        type: MessageType.location,
+        body: '',
+        metadata: {
+          'location': {
+            'latitude': latitude,
+            'longitude': longitude,
+            'name': name ?? '',
+            'address': address ?? '',
+          }
+        },
+        status: MessageStatus.sending,
+        createdAt: DateTime.now(),
+        pending: true,
+      ),
+    ]));
+    try {
+      await ref.read(chatRemoteDataSourceProvider).sendLocation(
+            conversationId,
+            latitude: latitude,
+            longitude: longitude,
+            name: name,
+            address: address,
+          );
+      _replace(tempId, (m) => m.copyWith(status: MessageStatus.queued));
+    } catch (_) {
+      _replace(tempId, (m) => m.copyWith(status: MessageStatus.failed));
+    }
   }
 
   void _onStatus(RealtimeStatus s) {
@@ -299,6 +328,9 @@ class ChatThreadController extends ChangeNotifier {
       // Find optimistic message to reconcile - match by media URL or trimmed body
       final idx = messages.lastIndexWhere((m) {
         if (!m.pending) return false;
+        // A shared location carries no body or media, so match it by type —
+        // otherwise its empty body would reconcile against an unrelated bubble.
+        if (payload.type == 'location') return m.type == MessageType.location;
         if (hasMedia) return m.hasMedia;
         // Compare trimmed bodies (backend may normalize whitespace)
         return m.body.trim().toLowerCase() == payload.body.trim().toLowerCase();

@@ -15,17 +15,26 @@ import (
 func (s *server) handleRevenue(w http.ResponseWriter, r *http.Request) {
 	from := strings.TrimSpace(r.URL.Query().Get("from"))
 	to := strings.TrimSpace(r.URL.Query().Get("to"))
-	// Default window: last 12 months, so the dashboard opens with a full trend.
+	// No range = all time (the picker's default), not an implicit window — an
+	// unbounded floor keeps the same query shape without a special case.
 	if to == "" {
 		to = time.Now().Format("2006-01-02")
 	}
 	if from == "" {
-		from = time.Now().AddDate(0, -11, 0).Format("2006-01-02")
+		from = "1970-01-01"
 	}
 
 	// Revenue is recognised on APPROVAL (decided_at), the moment money is agreed.
 	// The range is inclusive of `to` (< to+1 day).
 	rangeWhere := `status='approved' AND decided_at >= $1::date AND decided_at < ($2::date + 1)`
+	// Optional product filter: bundle (signup) or ai_credit (topup). Anything else
+	// means "all", so a bad value can't silently return an empty report.
+	switch r.URL.Query().Get("type") {
+	case "bundle":
+		rangeWhere += ` AND type='signup'`
+	case "ai_credit":
+		rangeWhere += ` AND type='topup'`
+	}
 
 	// KPI cards: total revenue in range, split by product type, plus deal counts.
 	kpi, err := s.queryMaps(r.Context(),

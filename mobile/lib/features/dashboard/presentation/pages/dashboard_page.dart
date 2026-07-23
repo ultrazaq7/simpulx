@@ -142,7 +142,9 @@ class _DashboardBody extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 1.45,
+            // Shorter tiles: the count and label need little height, and the extra
+            // padding made the gap to the cards below look inconsistent.
+            childAspectRatio: 1.85,
             children: [
               for (final item in items)
                 _ActionCard(data: item, onTap: () => onDrillChat(item.filter)),
@@ -159,6 +161,26 @@ class _DashboardBody extends StatelessWidget {
     );
   }
 
+}
+
+/// Table header cell: single line, ellipsis rather than a mid-word break.
+class _Th extends StatelessWidget {
+  const _Th(this.text, this.align);
+  final String text;
+  final TextAlign align;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        textAlign: align,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textMuted),
+      );
 }
 
 class _CardData {
@@ -412,13 +434,15 @@ class _StageSplitCard extends StatelessWidget {
           Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
           Expanded(
-            flex: 5,
+            flex: 7,
             child: Text(stageLabel(context, s.name),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
-            flex: 6,
+            flex: 5,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
@@ -620,8 +644,10 @@ class _InterestRow extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             SizedBox(
-                width: 86,
+                width: 112,
                 child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w500))),
             Expanded(
@@ -734,15 +760,17 @@ class _LeaderboardCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           // Table header
+          // Headers never wrap: on a phone the metric columns are narrow enough
+          // that a word like "Prospek" used to break mid-word ("Prospe k").
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               children: [
-                Expanded(flex: 3, child: Text('Agent'.tr(context), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
-                Expanded(flex: 1, child: Text('Leads'.tr(context), textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
-                Expanded(flex: 1, child: Text('Won'.tr(context), textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
-                Expanded(flex: 1, child: Text('Avg RT'.tr(context), textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
-                Expanded(flex: 1, child: Text('<5m'.tr(context), textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textMuted))),
+                Expanded(flex: 5, child: _Th('Agent'.tr(context), TextAlign.left)),
+                Expanded(flex: 3, child: _Th('Leads'.tr(context), TextAlign.center)),
+                Expanded(flex: 3, child: _Th('Won'.tr(context), TextAlign.center)),
+                Expanded(flex: 3, child: _Th('Avg RT'.tr(context), TextAlign.center)),
+                Expanded(flex: 2, child: _Th('<5m'.tr(context), TextAlign.right)),
               ],
             ),
           ),
@@ -755,7 +783,7 @@ class _LeaderboardCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      flex: 3,
+                      flex: 5,
                       child: Text(ag.agent,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -763,28 +791,31 @@ class _LeaderboardCard extends StatelessWidget {
                               fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                     Expanded(
-                      flex: 1,
+                      flex: 3,
                       child: Text('${ag.leads}',
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 12)),
                     ),
                     Expanded(
-                      flex: 1,
+                      flex: 3,
                       child: Text('${ag.won}',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                               fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
                     ),
                     Expanded(
-                      flex: 1,
+                      flex: 3,
                       child: Text(_fmtDuration(ag.avgRtMin),
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 12)),
                     ),
                     Expanded(
-                      flex: 1,
+                      flex: 2,
                       child: Text('${ag.within5Pct.toStringAsFixed(0)}%',
                           textAlign: TextAlign.right,
+                          maxLines: 1,
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -900,13 +931,7 @@ class _AgentAnalyticsSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
-        Text('My Performance'.tr(context),
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         analytics.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(16),

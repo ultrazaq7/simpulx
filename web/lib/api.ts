@@ -643,10 +643,11 @@ export const api = {
 
   listTransactions: () =>
     req<{ rows: import("./types").PlatformTransaction[]; summary: Record<string, number> }>("/api/platform/transactions"),
-  revenue: (from?: string, to?: string) => {
+  revenue: (from?: string, to?: string, type?: string) => {
     const qs = new URLSearchParams();
     if (from) qs.set("from", from);
     if (to) qs.set("to", to);
+    if (type) qs.set("type", type);
     const s = qs.toString();
     return req<import("./types").RevenueReport>(`/api/platform/revenue${s ? "?" + s : ""}`);
   },
