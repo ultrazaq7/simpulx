@@ -568,6 +568,8 @@ export const api = {
       `/api/campaigns/${id}/ads/live`),
   adPreviewHTML: (id: string, adId: string) =>
     req<{ html: string }>(`/api/campaigns/${id}/ads/${adId}/preview`),
+  setCampaignAdAccount: (id: string, adAccountId: string) =>
+    req(`/api/campaigns/${id}/ads/account`, { method: "POST", body: JSON.stringify({ ad_account_id: adAccountId }) }),
   listAdPages: (id: string) =>
     req<{ pages: { id: string; name: string }[]; chosen: { id: string; name: string } }>(
       `/api/campaigns/${id}/ads/pages`),

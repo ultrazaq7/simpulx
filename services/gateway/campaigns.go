@@ -117,7 +117,7 @@ func (s *server) handleGetCampaign(w http.ResponseWriter, r *http.Request) {
 		        c.lead_count, c.channel_id::text AS channel_id, c.calling_enabled,
 		        c.segment, c.brand, c.ai_auto_reply, c.ai_language, c.ai_dynamic_language, c.ai_smart_summary,
 		        c.intake_form_id::text AS intake_form_id, c.followup_template_id::text AS followup_template_id, c.monthly_budget, c.avg_deal_value,
-		        c.covered_cities,
+		        c.covered_cities, c.managed_ad_account_id::text AS managed_ad_account_id,
 		        COALESCE((SELECT jsonb_agg(m.ad_campaign_id::text)
 		                    FROM ad_campaign_campaigns m WHERE m.campaign_id = c.id), '[]'::jsonb) AS ad_campaign_ids,
 		        c.ai_style, c.followup_frequency,
@@ -178,6 +178,10 @@ type campaignInput struct {
 	// ours may legitimately be fed by several ad campaigns, which merely sums.
 	// nil = not sent (keep existing); [] = unmap everything.
 	AdCampaignIDs *[]string `json:"ad_campaign_ids"`
+	// Ad account the Ads tab reports/launches against, pickable from the wizard.
+	// '' = keep existing, 'none' = detach, else ad_accounts.id (must belong to
+	// this org — the FK alone would accept another tenant's account).
+	ManagedAdAccountID string `json:"managed_ad_account_id"`
 }
 
 // keywordsConflict returns the first keyword already claimed by ANOTHER campaign
@@ -275,13 +279,19 @@ func (s *server) handleCreateCampaign(w http.ResponseWriter, r *http.Request) {
 	if b.AILanguage == "" {
 		b.AILanguage = "id"
 	}
+	if msg, code := s.checkAdAccountOwned(r.Context(), a.OrgID, b.ManagedAdAccountID); msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
 	err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO campaigns (organization_id, name, dealer_name, routing_strategy, ad_source_ids, keywords, channel_id, calling_enabled,
-		                        segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary)
+		                        segment, brand, ai_auto_reply, ai_language, ai_dynamic_language, intake_form_id, ai_smart_summary, managed_ad_account_id)
 		 VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,NULLIF(NULLIF($7,''),'none')::uuid,COALESCE($8,true),
-		         NULLIF($9,''),NULLIF($10,''),COALESCE($11,false),$12,COALESCE($13,true),NULLIF(NULLIF($14,''),'none')::uuid,COALESCE($15,true)) RETURNING id::text`,
+		         NULLIF($9,''),NULLIF($10,''),COALESCE($11,false),$12,COALESCE($13,true),NULLIF(NULLIF($14,''),'none')::uuid,COALESCE($15,true),
+		         NULLIF(NULLIF($16,''),'none')::uuid) RETURNING id::text`,
 		a.OrgID, b.Name, b.DealerName, b.RoutingStrategy, b.AdSourceIDs, b.Keywords, b.ChannelID, b.CallingEnabled,
 		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID, b.AISmartSummary,
+		b.ManagedAdAccountID,
 	).Scan(&id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -309,6 +319,10 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if msg, code := s.checkAdAccountOwned(r.Context(), a.OrgID, b.ManagedAdAccountID); msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
 	tag, err := s.pool.Exec(r.Context(),
 		`UPDATE campaigns SET
 		   name = COALESCE(NULLIF($3,''), name),
@@ -332,13 +346,15 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   followup_frequency = COALESCE(NULLIF($21,''), followup_frequency),
 		   avg_deal_value = COALESCE($22, avg_deal_value),
 		   covered_cities = COALESCE($23, covered_cities),
+		   managed_ad_account_id = CASE WHEN $24 = '' THEN managed_ad_account_id
+		                                WHEN $24 = 'none' THEN NULL ELSE $24::uuid END,
 		   updated_at = now()
 		 WHERE id=$1 AND organization_id=$2`,
 		r.PathValue("id"), a.OrgID, b.Name, b.DealerName, b.Status, b.RoutingStrategy,
 		nilIfEmptySlice(b.AdSourceIDs), nilIfEmptySlice(b.Keywords), b.ChannelID, b.CallingEnabled,
 		b.Segment, b.Brand, b.AIAutoReply, b.AILanguage, b.AIDynamicLanguage, b.IntakeFormID, b.AISmartSummary,
 		b.MonthlyBudget, b.FollowupTemplateID, nilIfEmptyJSON(b.AIStyle), b.FollowupFrequency, b.AvgDealValue,
-		b.CoveredCities,
+		b.CoveredCities, b.ManagedAdAccountID,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -953,15 +953,7 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
   if (!status) return <div className="h-40 grid place-items-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
 
   if (!status.managed) {
-    return (
-      <div className="rounded-lg border border-dashed border-border p-8 text-center">
-        <Megaphone className="w-9 h-9 text-muted-foreground/30 mx-auto mb-3" />
-        <p className="font-semibold text-foreground mb-1">No ad account for this campaign</p>
-        <p className="text-[13px] text-muted-foreground">
-          Connect one in Settings &rarr; Channel &amp; Integrations &rarr; Advertising, then map its campaign here.
-        </p>
-      </div>
-    );
+    return <AdsAccountPicker id={id} notify={notify} onAttached={load} />;
   }
 
   const tot = (rows || []).reduce((a, r) => ({
@@ -1148,6 +1140,49 @@ function AdsTab({ id, notify }: { id: string; notify: (m: string, s?: "success" 
         </div>
       )}
       </>)}
+    </div>
+  );
+}
+
+// Empty state tab Ads yang bisa langsung beres: kalau org sudah punya ad account
+// yang connect, pilih di sini — tanpa ini satu-satunya jalan adalah dialog
+// mapping, yang buntu untuk campaign baru (belum ada apa pun untuk di-map).
+// Akun juga bisa dipilih sejak wizard New Campaign.
+function AdsAccountPicker({ id, notify, onAttached }: {
+  id: string; notify: (m: string, s?: "success" | "error") => void; onAttached: () => void;
+}) {
+  const [accounts, setAccounts] = useState<import("@/lib/types").AdAccount[] | null>(null);
+  const [picked, setPicked] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api.listAdAccounts().then(setAccounts).catch(() => setAccounts([])); }, []);
+
+  async function attach() {
+    setBusy(true);
+    try { await api.setCampaignAdAccount(id, picked); notify("Ad account attached"); onAttached(); }
+    catch (e) { notify(String(e), "error"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed border-border p-8 text-center">
+      <Megaphone className="w-9 h-9 text-muted-foreground/30 mx-auto mb-3" />
+      <p className="font-semibold text-foreground mb-1">No ad account for this campaign</p>
+      {accounts === null ? (
+        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mx-auto mt-2" />
+      ) : accounts.length === 0 ? (
+        <p className="text-[13px] text-muted-foreground">
+          Connect one in Settings &rarr; Channel &amp; Integrations &rarr; Advertising first.
+        </p>
+      ) : (
+        <div className="max-w-xs mx-auto mt-3 flex flex-col gap-2">
+          <Select value={picked} onChange={setPicked} placeholder="Pick a connected ad account"
+            options={accounts.map((a) => ({ value: a.id, label: `${a.name} (${a.platform})` }))} />
+          <button onClick={attach} disabled={!picked || busy}
+            className="inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Use this account
+          </button>
+        </div>
+      )}
     </div>
   );
 }

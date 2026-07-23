@@ -2312,5 +2312,8 @@
   "tx.invoiceCol": "Invoice",
   "tx.actionCol": "Action",
   "tx.view": "View details",
-  "tx.viewProof": "View proof"
+  "tx.viewProof": "View proof",
+  "settings.adAccountOptional": "Ad account (optional)",
+  "settings.adAccountHint": "Used by the Ads tab to report on and launch ads for this campaign.",
+  "settings.noAdAccount": "No ad account"
 }

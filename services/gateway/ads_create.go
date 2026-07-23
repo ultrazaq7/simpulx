@@ -637,3 +637,51 @@ func (s *server) handleLaunchAds(w http.ResponseWriter, r *http.Request) {
 		"status":           "paused",
 	})
 }
+
+// checkAdAccountOwned verifies an ad-account id belongs to the org before it is
+// written anywhere: the FK alone would happily accept another tenant's account.
+// Empty / "none" (keep / detach markers) pass through untouched.
+func (s *server) checkAdAccountOwned(ctx context.Context, orgID, adAccountID string) (msg string, code int) {
+	if adAccountID == "" || adAccountID == "none" {
+		return "", 0
+	}
+	var ok bool
+	if err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM ad_accounts WHERE id=$1::uuid AND organization_id=$2)`,
+		adAccountID, orgID).Scan(&ok); err != nil || !ok {
+		return "ad account not found", http.StatusNotFound
+	}
+	return "", 0
+}
+
+// POST /api/campaigns/{id}/ads/account — attach a connected ad account to this
+// campaign (campaigns.managed_ad_account_id). A freshly created campaign has no
+// Meta campaign to map yet, so the mapping dialog cannot be the only way to an
+// account: this is the step that gives Launch an account to create into.
+func (s *server) handleSetCampaignAdAccount(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	var b struct {
+		AdAccountID string `json:"ad_account_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&b); err != nil || strings.TrimSpace(b.AdAccountID) == "" {
+		http.Error(w, "ad_account_id required", http.StatusBadRequest)
+		return
+	}
+	if msg, code := s.checkAdAccountOwned(r.Context(), a.OrgID, b.AdAccountID); msg != "" {
+		http.Error(w, msg, code)
+		return
+	}
+	tag, err := s.pool.Exec(r.Context(),
+		`UPDATE campaigns SET managed_ad_account_id=$3::uuid WHERE id=$1::uuid AND organization_id=$2`,
+		r.PathValue("id"), a.OrgID, b.AdAccountID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	s.audit(r.Context(), a, "attached", "campaign_ad_account", r.PathValue("id"), map[string]any{"ad_account_id": b.AdAccountID})
+	writeJSON(w, map[string]any{"ok": true})
+}

@@ -2312,5 +2312,8 @@
   "tx.invoiceCol": "Invoice",
   "tx.actionCol": "Aksi",
   "tx.view": "Lihat detail",
-  "tx.viewProof": "Lihat bukti"
+  "tx.viewProof": "Lihat bukti",
+  "settings.adAccountOptional": "Ad account (opsional)",
+  "settings.adAccountHint": "Dipakai tab Ads untuk laporan dan launch iklan campaign ini.",
+  "settings.noAdAccount": "Tanpa ad account"
 }

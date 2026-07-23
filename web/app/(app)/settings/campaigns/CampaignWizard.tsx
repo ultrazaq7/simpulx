@@ -78,10 +78,16 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
   const [removed, setRemoved] = useState<string[]>([]);
   const [webSources, setWebSources] = useState<WebApiSource[]>([]);
 
+  // Ad account buat tab Ads (report + launch). '' = belum disentuh (keep),
+  // 'none' = eksplisit tanpa akun.
+  const [adAccountId, setAdAccountId] = useState("");
+  const [adAccounts, setAdAccounts] = useState<import("@/lib/types").AdAccount[]>([]);
+
   const agentOptions = users.map((u) => ({ id: u.id, name: u.full_name }));
   const webSourceOptions = webSources.map((s) => ({ value: s.id, label: s.name }));
 
   useEffect(() => {
+    api.listAdAccounts().then(setAdAccounts).catch(() => {});
     api.listWebApiSources().then(setWebSources).catch(() => {});
     api.listFlows().then((fs) => setForms((fs || []).map((f) => ({ id: f.id, name: f.name })))).catch(() => {});
     api.listTemplates().then((t) => setTemplates((t || []).filter((x) => x.status === "APPROVED").map((x) => ({ id: x.id, name: x.name, language: x.language })))).catch(() => {});
@@ -95,6 +101,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
           setSegment(c.segment ?? ""); setBrand(c.brand ?? ""); setAiAutoReply(c.ai_auto_reply ?? false);
           setAiLanguage(c.ai_language ?? "id"); setAiDynamicLanguage(c.ai_dynamic_language ?? true); setIntakeFormId(c.intake_form_id ?? "");
           setMonthlyBudget(c.monthly_budget != null ? String(c.monthly_budget) : "");
+          setAdAccountId((c as any).managed_ad_account_id || "none");
           setCoveredCities(c.covered_cities ?? []);
           setCitiesReady(true);
           setFollowupTpl(c.followup_template_id ?? "");
@@ -140,6 +147,7 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
         monthly_budget: monthlyBudget.trim() === "" ? null : Number(monthlyBudget.replace(/[^0-9.]/g, "")),
         ...(citiesReady || !isEdit ? { covered_cities: coveredCities } : {}),
         followup_template_id: followupTpl || "none",
+        managed_ad_account_id: adAccountId, // '' keep, 'none' detach, else attach
       };
       let cid = campaignId;
       if (isEdit) await api.updateCampaign(cid!, payload);
@@ -207,6 +215,16 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
             <p className="mt-1.5 text-[12px] text-muted-foreground">{t("settings.serviceAreaHint")}</p>
           </div>
           <WizardField label={t("settings.totalBudgetRpOptional")} value={monthlyBudget} onChange={(v) => setMonthlyBudget(v.replace(/[^0-9.]/g, ""))} placeholder="200000000" hint={t("settings.totalAdBudgetForThis")} />
+          {/* Ad account langsung dari wizard: tanpa ini campaign baru mendarat di
+              tab Ads dengan "No ad account" dan user harus nyari-nyari sendiri. */}
+          {adAccounts.length > 0 && (
+            <div>
+              <FieldLabel hint={t("settings.adAccountHint")}>{t("settings.adAccountOptional")}</FieldLabel>
+              <Select value={adAccountId} onChange={setAdAccountId} placeholder={t("settings.noAdAccount")}
+                options={[{ value: "none", label: t("settings.noAdAccount") },
+                  ...adAccounts.map((a) => ({ value: a.id, label: `${a.name} (${a.platform})` }))]} />
+            </div>
+          )}
 
           {/* AI Assistant */}
           <div className="rounded-xl border border-border overflow-hidden">
