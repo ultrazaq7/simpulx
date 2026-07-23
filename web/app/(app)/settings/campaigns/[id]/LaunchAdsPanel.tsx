@@ -39,7 +39,7 @@ export default function LaunchAdsPanel({ id, notify, createOnly }: {
       {!slim && <GeoSection id={id} notify={notify} onChange={reload} />}
       <CopySection id={id} notify={notify} onChange={reload} />
       {!slim && <AudienceSection id={id} notify={notify} />}
-      <CreativeSection id={id} preview={preview} notify={notify} onChange={reload} />
+      <CreativeSection id={id} preview={preview} notify={notify} onChange={reload} freshOnly={slim} />
       {!slim && <PageSection id={id} preview={preview} notify={notify} onChange={reload} />}
       <PartnershipSection id={id} notify={notify} />
       <LaunchBar id={id} preview={preview} notify={notify} onRefresh={reload} createLabel={slim} />
@@ -398,7 +398,7 @@ function AudienceSection({ id, notify }: { id: string; notify: (m: string, s?: "
   );
 }
 
-function CreativeSection({ id, preview, notify, onChange }: { id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void }) {
+function CreativeSection({ id, preview, notify, onChange, freshOnly }: { id: string; preview: AdsPreview; notify: (m: string, s?: "success" | "error") => void; onChange: () => void; freshOnly?: boolean }) {
   const { t } = useI18n();
   const format = preview.format === "carousel" ? "carousel" : "single";
   async function setFormat(f: "single" | "carousel") {
@@ -410,7 +410,13 @@ function CreativeSection({ id, preview, notify, onChange }: { id: string; previe
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function load() { api.listCreatives(id).then(setItems).catch(() => setItems([])); }
+  // freshOnly (wizard Buat iklan setelah launched): tampilkan HANYA materi yang
+  // belum jadi iklan - itulah yang akan dibuat. Materi lama dikelola di Manage.
+  function load() {
+    api.listCreatives(id)
+      .then((rows) => setItems(freshOnly ? rows.filter((r) => !r.meta_ad_id) : rows))
+      .catch(() => setItems([]));
+  }
   useEffect(load, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function upload(f: File) {
@@ -581,7 +587,7 @@ function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
 
   return (
     <div className="flex flex-col gap-2 pt-1">
-      {launched && (
+      {launched && !createLabel && (
         <div className="rounded-lg border border-primary/30 bg-primary/[0.05] p-3 flex items-start gap-2.5">
           <Rocket className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <div className="text-[13px] text-foreground">
@@ -591,6 +597,11 @@ function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
             </p>
           </div>
         </div>
+      )}
+      {launched && createLabel && (
+        <p className="text-[12px] text-muted-foreground">
+          {t("ads.createFreshHint", { n: preview.creatives.filter((c) => !c.on_meta).length })}
+        </p>
       )}
       <div className="flex items-center gap-3">
         <button onClick={onRefresh} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">{t("common.refresh")}</button>
@@ -610,7 +621,8 @@ function LaunchBar({ id, preview, notify, onRefresh, createLabel }: {
             <button onClick={() => setConfirming(false)} className="text-[12.5px] text-muted-foreground hover:text-foreground outline-none">{t("common.cancel")}</button>
           </div>
         ) : (
-          <button onClick={() => setConfirming(true)} disabled={!preview.can_launch || busy}
+          <button onClick={() => setConfirming(true)}
+            disabled={!preview.can_launch || busy || (createLabel && preview.creatives.filter((c) => !c.on_meta).length === 0)}
             title={preview.can_launch ? "" : t("ads.resolveFirst")}
             className="inline-flex items-center gap-1.5 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark outline-none disabled:opacity-50 disabled:cursor-not-allowed">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}

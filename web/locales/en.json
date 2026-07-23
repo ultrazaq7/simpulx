@@ -2456,5 +2456,6 @@
   "ads.deleteCampaignTitle": "Delete this Meta campaign?",
   "ads.deleteCampaignMsg": "Deletes the campaign on Meta INCLUDING all its ad sets and ads. This cannot be undone. Your uploaded creatives stay in Simpulx, and the next Launch builds a fresh campaign.",
   "ads.campaignDeleted": "Meta campaign deleted",
-  "ads.uploadNew": "Upload new"
+  "ads.uploadNew": "Upload new",
+  "ads.createFreshHint": "{{n}} new creative(s) will become new paused ads. Existing ads are managed in the Manage tab."
 }

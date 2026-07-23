@@ -2456,5 +2456,6 @@
   "ads.deleteCampaignTitle": "Hapus campaign Meta ini?",
   "ads.deleteCampaignMsg": "Menghapus campaign di Meta TERMASUK semua ad set dan iklannya. Tidak bisa dibatalkan. Materi yang diupload tetap di Simpulx, dan Launch berikutnya membuat campaign baru dari awal.",
   "ads.campaignDeleted": "Campaign Meta dihapus",
-  "ads.uploadNew": "Upload baru"
+  "ads.uploadNew": "Upload baru",
+  "ads.createFreshHint": "{{n}} materi baru akan jadi iklan baru (paused). Iklan yang sudah ada dikelola di tab Kelola."
 }
