@@ -16,7 +16,7 @@ from typing import List, Optional
 
 from simpulx_common import llm
 
-from classifier import classify, is_trivial, STRONG_INTENT, detect_junk
+from classifier import classify, is_trivial, STRONG_INTENT, detect_junk, detect_do_not_contact
 import closing_score
 import lead_score
 import nba
@@ -257,7 +257,7 @@ async def _send_catalog_list(broker, org_id: str, conv_id: str, rows: list[dict]
         rid = str(r.get("id") or "")
         if not rid:
             continue
-        title = " ".join(x for x in (r.get("item_name"), r.get("variant_name")) if x).strip() or "Varian"
+        title = " ".join(x for x in (r.get("item_name"), r.get("variant_name")) if x).strip() or "Tipe"
         bits = [listings_rag._rupiah(r.get("headline_price"))] if r.get("headline_price") else []
         if r.get("location_name"):
             bits.append(str(r["location_name"]))
@@ -266,13 +266,13 @@ async def _send_catalog_list(broker, org_id: str, conv_id: str, rows: list[dict]
         return
     await broker.publish(SUBJECT_OUTBOUND, org_id, {
         "conversation_id": conv_id, "sender_type": "bot", "type": "interactive",
-        "body": "Pilihan varian yang tersedia:",
+        "body": "Pilihan tipe yang tersedia:",
         "interactive": {
             "type": "list",
-            "body": "Pilihan varian yang tersedia:",
-            "footer": "Ketuk varian untuk melihat harga & detail",
-            "button_text": "Lihat varian",
-            "sections": [{"title": "Varian tersedia", "rows": items}],
+            "body": "Pilihan tipe yang tersedia:",
+            "footer": "Ketuk tipe untuk lihat harga & detail",
+            "button_text": "Lihat tipe",
+            "sections": [{"title": "Tipe tersedia", "rows": items}],
         },
     })
 
@@ -1194,8 +1194,15 @@ async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, co
     out-of-area lead handed off early still arrives with context, not just a city.
     `promo` marks a lead asking about an ad promo the bot can't verify: the human must
     quote the real promo terms, since the bot was told not to."""
-    await _publish_activity(broker, org_id, conv_id, "handoff", log)
     async with _conn_or(pool, conn) as conn:
+        # Dedupe: jalur luar-area (dan re-engage) bisa memanggil handoff TIAP
+        # giliran. Kasus nyata di prod: 11 note + 11 notifikasi identik untuk satu
+        # percakapan. Kalau handoff terakhir masih baru dan alasannya tidak
+        # berubah, cukup pastikan bot berdiri turun — tanpa note, tanpa notif.
+        prevh = await conn.fetchrow(
+            """SELECT handoff_at, COALESCE(handoff_reason,'') AS hr,
+                      (handoff_at IS NOT NULL AND handoff_at > now() - interval '24 hours') AS recent
+                 FROM conversations WHERE id = $1""", conv_id)
         reason = None
         if out_of_area_city:
             reason = f"luar area ({out_of_area_city})"
@@ -1207,6 +1214,13 @@ async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, co
             reason = "tanya promo iklan - perlu konfirmasi tim"
             if product:
                 reason += f" ({product})"
+        if prevh is not None and prevh["recent"] and (reason is None or reason == prevh["hr"]):
+            await conn.execute(
+                """UPDATE conversations SET is_bot_active = false, updated_at = now()
+                   WHERE id = $1""", conv_id)
+            log.info("nurture handoff deduped (recent, same reason)", extra={"conv": conv_id})
+            return
+        await _publish_activity(broker, org_id, conv_id, "handoff", log)
         await conn.execute(
             """UPDATE conversations SET is_bot_active = false, handoff_at = now(),
                  handoff_reason = COALESCE($2, handoff_reason), updated_at = now()
@@ -1223,24 +1237,48 @@ async def _ai_handoff(broker, pool, org_id: str, conv_id: str, agent_id, log, co
                           COALESCE(metadata->'lead_fields', '{}'::jsonb) AS lead_fields
                      FROM conversations WHERE id = $1""", conv_id)
             if snap:
+                # Ditulis untuk MANUSIA: label Indonesia yang familiar, bukan key
+                # mesin lowercase (city:, purchase_timeframe:) — ini catatan kerja
+                # agent, bukan dump database.
+                field_label = {
+                    "city": "Kota", "brand": "Brand", "model": "Model", "budget": "Budget",
+                    "purchase_timeframe": "Rencana beli", "payment": "Pembayaran",
+                    "trade_in": "Tukar tambah", "property_type": "Tipe properti",
+                    "location": "Lokasi", "bedrooms": "Kamar", "usage": "Penggunaan",
+                }
+                prio_label = {"high": "Tinggi", "medium": "Sedang", "low": "Rendah"}
+                action_label = {
+                    "handoff": "Serahkan ke agent", "message": "Kirim pesan",
+                    "call": "Telepon", "offer_test_drive": "Tawarkan test drive",
+                    "wait": "Tunggu dulu", "send_offer": "Kirim penawaran",
+                }
                 lines = ["[AI] Konteks handoff"]
                 if snap["lead_summary"]:
+                    lines.append("")
                     lines.append(f"Ringkasan: {snap['lead_summary']}")
                 try:
                     lf = json.loads(snap["lead_fields"]) if isinstance(snap["lead_fields"], str) else dict(snap["lead_fields"] or {})
                 except Exception:  # noqa: BLE001
                     lf = {}
-                filled = [f"{k}: {v}" for k, v in lf.items() if v not in (None, "", [])]
+                filled = [
+                    f"{field_label.get(k, k.replace('_', ' ').capitalize())}: {v}"
+                    for k, v in lf.items() if v not in (None, "", [])
+                ]
                 if filled:
-                    lines.append("Data lead: " + ", ".join(filled))
+                    lines.append("")
+                    lines.append("Data lead:")
+                    lines.extend(f"- {f}" for f in filled)
+                    lines.append("")
                 if snap["lead_score"] is not None:
-                    prio = f" ({snap['lead_priority']})" if snap["lead_priority"] else ""
+                    prio = snap["lead_priority"] or ""
+                    prio = f" ({prio_label.get(prio, prio)})" if prio else ""
                     lines.append(f"Skor: {round(float(snap['lead_score']))}{prio}")
                 if snap["suggested_action"]:
-                    why = f" - {snap['suggested_action_reason']}" if snap["suggested_action_reason"] else ""
-                    lines.append(f"Saran: {snap['suggested_action']}{why}")
+                    act = action_label.get(snap["suggested_action"], snap["suggested_action"].replace("_", " ").capitalize())
+                    why = f": {snap['suggested_action_reason']}" if snap["suggested_action_reason"] else ""
+                    lines.append(f"Saran: {act}{why}")
                 if snap["handoff_reason"]:
-                    lines.append(f"Alasan handoff: {snap['handoff_reason']}")
+                    lines.append(f"Alasan: {snap['handoff_reason']}")
                 await conn.execute(
                     """INSERT INTO internal_notes (organization_id, conversation_id, user_id, body)
                        VALUES ($1, $2, NULL, $3)""", org_id, conv_id, "\n".join(lines))
@@ -1312,6 +1350,10 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
     c = classify(msgs)
     junk = detect_junk(msgs)
     is_junk = junk["is_junk"] and junk["confidence"] >= JUNK_CONF
+    # Do-not-contact ("gajadi, jangan hubungi lagi"): terminal seperti junk, tapi
+    # BUKAN spam — lead sopan yang berubah pikiran. Bot berhenti, follow-up mati,
+    # skor diturunkan, dan lost_reason terisi supaya funnel jujur.
+    dnc = (not is_junk) and detect_do_not_contact(msgs)
 
     # Junk override (FR-34/BR-44): high-precision rules -> cold + spam disposition +
     # lost_reason. COALESCE keeps any human-set disposition/lost_reason; reversible via UI.
@@ -1337,18 +1379,28 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
         # quality axis -- it belongs in the AI summary, not the temperature. Only two
         # filters remain: out-of-area (serviceability the bot can't judge -> cold) and
         # WARM needing the full qualifier set (so agents get complete leads, not stubs).
+        # WARM tidak lagi menuntut SEMUA qualifier: lead yang minta simulasi
+        # cicilan dengan model+kota jelas itu warm walau budget belum disebut.
+        # Dua dari set qualifier sudah cukup; kelengkapan sisanya urusan nurture.
+        have = sum(1 for k in req if lf.get(k))
+        fields_ok = (not req) or have >= min(len(req), 2)
         if ooa:
             interest, filter_reason = "cold", f"Luar area layanan ({ooa}); serviceability perlu dicek tim."
-        elif interest == "warm" and not fields_done:
+        elif interest == "warm" and not fields_ok:
             interest, filter_reason = "cold", "Ada minat tapi info kualifikasi belum lengkap."
     disp_key = "spam" if is_junk else c["disposition_key"]
     reason = junk["reason"] if is_junk else (filter_reason or c["reason"])
     confidence = junk["confidence"] if is_junk else c["confidence"]
     lost_reason = junk["lost_reason"] if is_junk else None
+    if dnc:
+        interest = "cold"
+        reason = "Lead minta berhenti dihubungi / membatalkan. Bot dihentikan, follow-up dimatikan."
+        confidence = 0.95
+        lost_reason = "changed_mind"
     # Junk (abusive / obscene / repeated spam) is terminal: alongside the 'spam'
     # disposition above, move it straight to the Lost stage so it leaves the active
     # funnel, and stand the bot down (handled in the UPDATE below).
-    stage_key = "lost_not_purchase" if is_junk else c["stage_key"]
+    stage_key = "lost_not_purchase" if (is_junk or dnc) else c["stage_key"]
     # A COLD lead is ambiguous, so the AI must not auto-advance it past "contacted".
     # Otherwise the funnel reports an out-of-area / far-horizon / incomplete lead as
     # "qualified" (Memenuhi Syarat) -- a lead the bot itself judged not ready. The AI
@@ -1395,13 +1447,20 @@ async def classify_and_update(pool, org_id: str, conv_id: str, log) -> Optional[
                  updated_at = now()
                WHERE id = $1 AND (classification_locked = false OR $2 IN ('warm', 'hot'))""",
             conv_id, interest, stage_key, stage_id, disp_id,
-            reason, confidence, json.dumps(c["categories"]), lost_reason, is_junk,
+            reason, confidence, json.dumps(c["categories"]), lost_reason, (is_junk or dnc),
         )
+        if dnc:
+            # Skor tinggi pada lead yang minta berhenti = referensi sales yang
+            # menyesatkan; turunkan ke lantai dan matikan seluruh cadence.
+            await conn.execute(
+                """UPDATE conversations SET lead_score = LEAST(COALESCE(lead_score, 0), 10),
+                       followup_count = 5, early_nudged = true
+                 WHERE id = $1""", conv_id)
     log.info("lead classified", extra={"conv": conv_id, "interest": interest,
                                        "stage": stage_key, "junk": is_junk})
     return {
         "interest": interest, "stage_key": stage_key, "categories": c["categories"],
-        "off_topic": c["off_topic"], "is_junk": is_junk, "changed": changed,
+        "off_topic": c["off_topic"], "is_junk": is_junk, "dnc": dnc, "changed": changed,
         "new_strong_intent": new_strong_intent,
     }
 

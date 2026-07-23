@@ -738,38 +738,61 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// The asset: the chosen campaign creative, or (creative_id empty = text-only
-	// edit) whatever asset row is currently linked to this ad.
+	// The asset. creative_id set = the user picked/uploaded one of the
+	// campaign's assets. creative_id EMPTY = text-only edit: the asset comes
+	// from the ad's OWN live creative on Meta, so editing never depends on a
+	// Simpulx-side link existing (a duplicated or relaunched ad has none, and
+	// that used to fail here with "not found").
 	var fileURL, mediaType, fileName, imageHash, videoID string
-	var err error
 	if b.CreativeID != "" {
-		err = s.pool.QueryRow(r.Context(),
+		err := s.pool.QueryRow(r.Context(),
 			`SELECT id::text, file_url, media_type, COALESCE(file_name,''), COALESCE(meta_image_hash,''), COALESCE(meta_video_id,'')
 			   FROM campaign_creatives
 			  WHERE id = $1::uuid AND campaign_id = $2::uuid AND organization_id = $3::uuid`,
 			b.CreativeID, t.campaignID, t.orgID).Scan(&b.CreativeID, &fileURL, &mediaType, &fileName, &imageHash, &videoID)
+		if err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
 	} else {
-		err = s.pool.QueryRow(r.Context(),
-			`SELECT id::text, file_url, media_type, COALESCE(file_name,''), COALESCE(meta_image_hash,''), COALESCE(meta_video_id,'')
-			   FROM campaign_creatives
-			  WHERE meta_ad_id = $1 AND campaign_id = $2::uuid AND organization_id = $3::uuid
-			  ORDER BY created_at LIMIT 1`,
-			adID, t.campaignID, t.orgID).Scan(&b.CreativeID, &fileURL, &mediaType, &fileName, &imageHash, &videoID)
-	}
-	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+		var live struct {
+			Name     string `json:"name"`
+			Creative *struct {
+				ObjectStorySpec *struct {
+					LinkData *struct {
+						ImageHash string `json:"image_hash"`
+					} `json:"link_data"`
+					VideoData *struct {
+						VideoID string `json:"video_id"`
+					} `json:"video_data"`
+				} `json:"object_story_spec"`
+			} `json:"creative"`
+		}
+		u := fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=name,creative{object_story_spec}&access_token=%s",
+			metaGraphVersion, adID, url.QueryEscape(t.token))
+		if err := metaGet(r.Context(), u, &live); err != nil || live.Creative == nil || live.Creative.ObjectStorySpec == nil {
+			http.Error(w, "could not read the ad's current creative from Meta", http.StatusUnprocessableEntity)
+			return
+		}
+		fileName = live.Name
+		spec := live.Creative.ObjectStorySpec
+		switch {
+		case spec.LinkData != nil && spec.LinkData.ImageHash != "":
+			mediaType, imageHash = "image", spec.LinkData.ImageHash
+		case spec.VideoData != nil && spec.VideoData.VideoID != "":
+			mediaType, videoID = "video", spec.VideoData.VideoID
+		default:
+			http.Error(w, "this ad's creative format cannot be edited here (no image or video asset found)", http.StatusUnprocessableEntity)
+			return
+		}
 	}
 
-	// Approved copy + Page: the creative must say something and run as someone.
+	// Approved copy is only the FALLBACK for fields the editor left empty; a
+	// missing approved set is fine as long as the edit provides its own text.
 	var ptJSON, hlJSON, dsJSON []byte
-	err = s.pool.QueryRow(r.Context(),
+	_ = s.pool.QueryRow(r.Context(),
 		`SELECT primary_texts, headlines, descriptions FROM campaign_ad_copy
 		  WHERE campaign_id = $1::uuid AND status = 'approved' LIMIT 1`, t.campaignID).Scan(&ptJSON, &hlJSON, &dsJSON)
-	if err != nil {
-		http.Error(w, "no approved ad copy for this campaign yet", http.StatusConflict)
-		return
-	}
 	var primaryTexts, headlines, descriptions []string
 	_ = json.Unmarshal(ptJSON, &primaryTexts)
 	_ = json.Unmarshal(hlJSON, &headlines)
@@ -792,6 +815,10 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 	desc := strings.TrimSpace(b.Description)
 	if desc == "" {
 		desc = firstOf(descriptions)
+	}
+	if message == "" {
+		http.Error(w, "no ad text: fill the primary text or approve an ad copy set first", http.StatusConflict)
+		return
 	}
 	var pageID string
 	_ = s.pool.QueryRow(r.Context(),
@@ -881,14 +908,16 @@ func (s *server) handleAdsAdSwapCreative(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Remap: the old asset rows lose the ad link (they are no longer what runs),
-	// the chosen asset now carries it.
-	_, _ = s.pool.Exec(r.Context(),
-		`UPDATE campaign_creatives SET meta_ad_id = NULL, status = 'uploaded'
-		  WHERE campaign_id = $1::uuid AND meta_ad_id = $2 AND id <> $3::uuid`,
-		t.campaignID, adID, b.CreativeID)
-	_, _ = s.pool.Exec(r.Context(),
-		`UPDATE campaign_creatives SET meta_ad_id = $2 WHERE id = $1::uuid`, b.CreativeID, adID)
+	// Remap only when an explicit asset was chosen: the old rows lose the ad
+	// link, the chosen one carries it. Text-only edits leave links untouched.
+	if b.CreativeID != "" {
+		_, _ = s.pool.Exec(r.Context(),
+			`UPDATE campaign_creatives SET meta_ad_id = NULL, status = 'uploaded'
+			  WHERE campaign_id = $1::uuid AND meta_ad_id = $2 AND id <> $3::uuid`,
+			t.campaignID, adID, b.CreativeID)
+		_, _ = s.pool.Exec(r.Context(),
+			`UPDATE campaign_creatives SET meta_ad_id = $2 WHERE id = $1::uuid`, b.CreativeID, adID)
+	}
 	s.logAdsManage(r.Context(), a, t, "swapped_ad_creative", "ad", adID,
 		fmt.Sprintf("Swapped creative of ad %s to %q by %s", adID, fileName, a.Name))
 	writeJSON(w, map[string]any{"ok": true, "ad_id": adID, "creative_id": b.CreativeID})

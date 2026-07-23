@@ -226,6 +226,26 @@ _ABUSIVE_RE = re.compile("|".join(_ABUSIVE + _OBSCENE), re.IGNORECASE)
 _URL_RE = re.compile(r"(https?://|www\.|wa\.me/|fb\.me/|t\.me/|bit\.ly/)", re.IGNORECASE)
 
 
+# ── Do-not-contact / batal (BR: "Gajadi bang jgn hubungin lg") ──────────────
+# Definitif dari teks: lead minta berhenti dihubungi atau membatalkan niat beli.
+# Presisi tinggi > recall: hanya pesan TERAKHIR yang dilihat, dan pembatalan
+# sebagian ("gak jadi test drive") TIDAK dihitung — itu preferensi, bukan stop.
+_DNC_CONTACT = re.compile(
+    r"(jangan|jgn|ga\s?usah|gak\s?usah|nggak\s?usah|stop)\s+\w{0,12}\s*(hubung|kontak|chat|telp|telepon|telfon|wa\b)",
+    re.I)
+_DNC_CANCEL = re.compile(r"^(y?a?\s*)?(uda?h?\s*)?(ga\s?jadi|gak\s?jadi|tidak\s?jadi|nggak\s?jadi|batal(in|kan)?)\b", re.I)
+_DNC_PARTIAL = re.compile(r"(test\s?drive|survei|jadwal|besok|dulu|itu|yang)", re.I)
+
+
+def detect_do_not_contact(customer_messages: List[str]) -> bool:
+    last = (customer_messages[-1] if customer_messages else "").strip()
+    if not last:
+        return False
+    if _DNC_CONTACT.search(last):
+        return True
+    return len(last) <= 45 and bool(_DNC_CANCEL.search(last)) and not _DNC_PARTIAL.search(last)
+
+
 def detect_junk(customer_messages: List[str]) -> dict:
     """Rules-only junk / lost-reason early detection (free, HIGH-PRECISION on purpose:
     a false positive = a lost real lead). Returns {is_junk, category, lost_reason,
