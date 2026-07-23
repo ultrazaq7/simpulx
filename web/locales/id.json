@@ -2451,5 +2451,6 @@
   "ads.partnershipIgMedia": "ID media IG partner",
   "ads.partnershipCode": "Kode partnership ad (opsional, dari aplikasi IG partner)",
   "ads.partnershipNote": "Butuh permission app instagram_branded_content_ads_brand (Meta App Review). Sebelum di-approve, Meta menolak iklan partnership saat launch dan alasannya tampil sebagai warning; iklan biasa tidak terpengaruh.",
-  "ads.partnershipSaved": "Pengaturan partnership disimpan"
+  "ads.partnershipSaved": "Pengaturan partnership disimpan",
+  "ads.suggestAi": "Saran AI"
 }

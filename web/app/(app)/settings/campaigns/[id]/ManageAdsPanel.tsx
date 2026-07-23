@@ -9,7 +9,7 @@
 import { Fragment, useEffect, useState } from "react";
 import {
   Loader2, ChevronDown, ChevronRight, Megaphone, Layers, Image as ImageIcon,
-  Pencil, Trash2, Eye, X, RefreshCw, Wallet, AlertTriangle, Plus, Link2,
+  Pencil, Trash2, Eye, X, RefreshCw, AlertTriangle, Plus, Link2, Sparkles,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -561,6 +561,22 @@ function EditAdDrawer({ campaignId, ad, notify, onClose, onSaved }: {
   const [creativeId, setCreativeId] = useState("");
   const [pickOpen, setPickOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Saran AI: varian copy dari generator campaign (segment/brand/kota/katalog),
+  // klik chip = isi field. Generate on demand supaya tidak ada token terbuang.
+  const [sug, setSug] = useState<{ primary_texts: string[]; headlines: string[]; descriptions: string[] } | null>(null);
+  const [sugBusy, setSugBusy] = useState(false);
+
+  async function suggest() {
+    setSugBusy(true);
+    try {
+      const r = await api.generateAdCopy(campaignId);
+      setSug({ primary_texts: r.primary_texts || [], headlines: r.headlines || [], descriptions: r.descriptions || [] });
+    } catch (e) {
+      notify(String(e), "error");
+    } finally {
+      setSugBusy(false);
+    }
+  }
 
   async function save() {
     setBusy(true);
@@ -622,6 +638,58 @@ function EditAdDrawer({ campaignId, ad, notify, onClose, onSaved }: {
               <input value={desc} onChange={(e) => setDesc(e.target.value)}
                 className="w-full h-9 px-3 rounded-lg border border-input bg-background text-[13px] outline-none focus:border-primary" />
             </div>
+          </div>
+          <div>
+            <button onClick={suggest} disabled={sugBusy}
+              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-primary/40 text-primary text-[12.5px] font-semibold hover:bg-primary/5 outline-none disabled:opacity-60">
+              {sugBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} {t("ads.suggestAi")}
+            </button>
+            {sug && (
+              <div className="mt-3 space-y-3">
+                {sug.primary_texts.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("ads.primaryTextField")}</p>
+                    <div className="flex flex-col gap-1.5">
+                      {sug.primary_texts.slice(0, 3).map((v, i) => (
+                        <button key={i} onClick={() => setMessage(v)}
+                          className={cn("text-left text-[12px] px-2.5 py-1.5 rounded-lg border transition-colors",
+                            message === v ? "border-primary bg-primary/5" : "border-border hover:border-primary/40")}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {sug.headlines.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("ads.headlineField")}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {sug.headlines.slice(0, 5).map((v, i) => (
+                        <button key={i} onClick={() => setHeadline(v)}
+                          className={cn("text-[12px] px-2.5 py-1 rounded-full border transition-colors",
+                            headline === v ? "border-primary bg-primary/5" : "border-border hover:border-primary/40")}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {sug.descriptions.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground mb-1">{t("ads.descriptionField")}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {sug.descriptions.slice(0, 5).map((v, i) => (
+                        <button key={i} onClick={() => setDesc(v)}
+                          className={cn("text-[12px] px-2.5 py-1 rounded-full border transition-colors",
+                            desc === v ? "border-primary bg-primary/5" : "border-border hover:border-primary/40")}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <p className="text-[11.5px] text-muted-foreground">{t("ads.editAdNote")}</p>
         </div>

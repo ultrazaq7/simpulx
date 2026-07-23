@@ -2451,5 +2451,6 @@
   "ads.partnershipIgMedia": "Partner IG media ID",
   "ads.partnershipCode": "Partnership ad code (optional, from the partner's IG app)",
   "ads.partnershipNote": "Needs the app permission instagram_branded_content_ads_brand (Meta App Review). Until it is granted, Meta refuses the partnership ad at launch and the reason shows as a warning; regular ads are not affected.",
-  "ads.partnershipSaved": "Partnership settings saved"
+  "ads.partnershipSaved": "Partnership settings saved",
+  "ads.suggestAi": "AI suggestions"
 }
