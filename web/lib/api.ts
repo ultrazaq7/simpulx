@@ -570,6 +570,12 @@ export const api = {
     req<{ html: string }>(`/api/campaigns/${id}/ads/${adId}/preview`),
   setCampaignAdAccount: (id: string, adAccountId: string) =>
     req(`/api/campaigns/${id}/ads/account`, { method: "POST", body: JSON.stringify({ ad_account_id: adAccountId }) }),
+  subscriptionUsage: () =>
+    req<{
+      daily: { date: string; replies: number }[];
+      by_campaign: { campaign: string; campaign_id: string; replies: number }[];
+      allocations: { campaign_id: string; allocated_credits: number; used_credits: number; remaining: number }[];
+    }>("/api/subscription/usage"),
   listAdPages: (id: string) =>
     req<{ pages: { id: string; name: string }[]; chosen: { id: string; name: string } }>(
       `/api/campaigns/${id}/ads/pages`),

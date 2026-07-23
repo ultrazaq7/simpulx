@@ -2315,5 +2315,11 @@
   "tx.viewProof": "View proof",
   "settings.adAccountOptional": "Ad account (optional)",
   "settings.adAccountHint": "Used by the Ads tab to report on and launch ads for this campaign.",
-  "settings.noAdAccount": "No ad account"
+  "settings.noAdAccount": "No ad account",
+  "settings.aiRepliesPerDay": "AI replies per day (last 30 days)",
+  "settings.usageByCampaign": "Usage by campaign (this month)",
+  "settings.campaign": "Campaign",
+  "settings.repliesThisMonth": "AI replies",
+  "settings.allocated": "Allocated (used/total)",
+  "settings.remaining": "Remaining"
 }

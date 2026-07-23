@@ -2315,5 +2315,11 @@
   "tx.viewProof": "Lihat bukti",
   "settings.adAccountOptional": "Ad account (opsional)",
   "settings.adAccountHint": "Dipakai tab Ads untuk laporan dan launch iklan campaign ini.",
-  "settings.noAdAccount": "Tanpa ad account"
+  "settings.noAdAccount": "Tanpa ad account",
+  "settings.aiRepliesPerDay": "Balasan AI per hari (30 hari terakhir)",
+  "settings.usageByCampaign": "Pemakaian per campaign (bulan ini)",
+  "settings.campaign": "Campaign",
+  "settings.repliesThisMonth": "Balasan AI",
+  "settings.allocated": "Alokasi (terpakai/total)",
+  "settings.remaining": "Sisa"
 }

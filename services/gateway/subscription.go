@@ -219,3 +219,45 @@ func (s *server) handleCampaignUsageCSV(w http.ResponseWriter, r *http.Request) 
 	}
 	cw.Flush()
 }
+
+// GET /api/subscription/usage — the detail behind the one-line quota bar: AI
+// replies per day (last 30) and the split per campaign this month. Deliberately
+// computed from the SAME source as used_simpuler_credits (bot messages), so
+// this page and the header can never disagree; the per-campaign allocation
+// (campaign_credits) is joined alongside as its own columns, clearly separate.
+func (s *server) handleSubscriptionUsage(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	daily, err := s.queryMaps(r.Context(),
+		`SELECT to_char(m.created_at::date, 'YYYY-MM-DD') AS date, count(*)::int AS replies
+		   FROM messages m
+		  WHERE m.organization_id=$1 AND m.sender_type='bot'
+		    AND m.created_at >= now() - interval '30 days'
+		  GROUP BY 1 ORDER BY 1`, a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Split per campaign, this calendar month (same window as the header number).
+	// Replies in conversations that have no campaign are shown too — hiding them
+	// would make the split sum below the headline and look broken.
+	byCampaign, err := s.queryMaps(r.Context(),
+		`SELECT COALESCE(c.name, '(no campaign)') AS campaign,
+		        COALESCE(c.id::text, '') AS campaign_id,
+		        count(*)::int AS replies
+		   FROM messages m
+		   JOIN conversations cv ON cv.id = m.conversation_id
+		   LEFT JOIN campaigns c ON c.id = cv.campaign_id
+		  WHERE m.organization_id=$1 AND m.sender_type='bot'
+		    AND m.created_at >= date_trunc('month', now())
+		  GROUP BY 1, 2 ORDER BY count(*) DESC`, a.OrgID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	allocations, _ := s.queryMaps(r.Context(),
+		`SELECT c.id::text AS campaign_id, cc.allocated_credits, cc.used_credits,
+		        (cc.allocated_credits - cc.used_credits) AS remaining
+		   FROM campaign_credits cc JOIN campaigns c ON c.id = cc.campaign_id
+		  WHERE c.organization_id=$1`, a.OrgID)
+	writeJSON(w, map[string]any{"daily": daily, "by_campaign": byCampaign, "allocations": allocations})
+}

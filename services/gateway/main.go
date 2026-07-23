@@ -383,6 +383,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/branches/{id}", s.requireAuth(s.branchScoped(s.gate("manage_campaigns", s.handleDeleteBranch))))
 	// Simpuler credits (org subscription pool + per-campaign allocation/usage).
 	mux.HandleFunc("GET /api/subscription", s.requireAuth(s.handleGetSubscription))
+	mux.HandleFunc("GET /api/subscription/usage", s.requireAuth(s.handleSubscriptionUsage))
 	mux.HandleFunc("PATCH /api/subscription", s.requireAuth(s.handleUpdateSubscription))
 	mux.HandleFunc("GET /api/campaigns/{id}/credits", s.requireAuth(s.campaignScoped(s.handleGetCampaignCredits)))
 	mux.HandleFunc("POST /api/campaigns/{id}/credits/allocate", s.requireAuth(s.campaignScoped(s.gate("manage_campaigns", s.handleAllocateCampaignCredits))))

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Building2, Lock } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from "recharts";
 import { api, getUser } from "@/lib/api";
 import { loadPermissions, canWith } from "@/lib/permissions";
 import { Select } from "@/components/Select";
@@ -271,6 +272,7 @@ export default function GeneralSettingsPage() {
                 <QuotaRow label={t("settings.simpulerCreditsThisMonth")} used={sub.used_simpuler_credits} limit={sub.quotas?.simpuler_credits} />
                 <QuotaRow label={t("contacts.customFields")} used={sub.used_custom_fields} limit={sub.quotas?.custom_fields} />
               </div>
+              <UsageDetail />
             </div>
           ) : <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>}
         </Section>
@@ -278,5 +280,81 @@ export default function GeneralSettingsPage() {
 
       <UnsavedBar count={changed.length} saving={saving} onSave={save} onCancel={() => setForm(orig)} />
     </PageBody>
+  );
+}
+
+// Detail di balik angka "Simpuler credits (this month)": pemakaian harian 30
+// hari (chart) + split per campaign bulan berjalan, dihitung backend dari
+// SUMBER YANG SAMA dengan angka headernya supaya tidak pernah beda cerita.
+// Kolom alokasi (Credits & Usage per campaign) ditampilkan bersandingan.
+function UsageDetail() {
+  const { t } = useI18n();
+  const [data, setData] = useState<{
+    daily: { date: string; replies: number }[];
+    by_campaign: { campaign: string; campaign_id: string; replies: number }[];
+    allocations: { campaign_id: string; allocated_credits: number; used_credits: number; remaining: number }[];
+  } | null>(null);
+  useEffect(() => { api.subscriptionUsage().then(setData).catch(() => setData(null)); }, []);
+
+  if (!data) return null;
+  const alloc = new Map(data.allocations.map((a) => [a.campaign_id, a]));
+  const totalMonth = data.by_campaign.reduce((s, c) => s + c.replies, 0);
+
+  return (
+    <div className="space-y-4">
+      {data.daily.length > 0 && (
+        <div className="rounded-lg border border-border p-3">
+          <p className="text-[12.5px] font-semibold text-foreground mb-2">{t("settings.aiRepliesPerDay")}</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={data.daily} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }}
+                tickFormatter={(d: string) => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`} />
+              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+              <RTooltip labelFormatter={(d) => String(d).slice(0, 10)} />
+              <Bar dataKey="replies" fill="#0E5B54" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {data.by_campaign.length > 0 && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <p className="text-[12.5px] font-semibold text-foreground px-3 py-2 border-b border-border">
+            {t("settings.usageByCampaign")}
+          </p>
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/30 border-b border-border">
+                <th className="px-3 py-1.5">{t("settings.campaign")}</th>
+                <th className="px-3 py-1.5 text-right">{t("settings.repliesThisMonth")}</th>
+                <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("settings.allocated")}</th>
+                <th className="px-3 py-1.5 text-right hidden sm:table-cell">{t("settings.remaining")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {data.by_campaign.map((c) => {
+                const al = alloc.get(c.campaign_id);
+                const share = totalMonth > 0 ? Math.round((c.replies / totalMonth) * 100) : 0;
+                return (
+                  <tr key={c.campaign_id || c.campaign}>
+                    <td className="px-3 py-2 font-medium text-foreground">{c.campaign}
+                      <span className="ml-1.5 text-[11px] text-muted-foreground tabular-nums">{share}%</span>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{c.replies}</td>
+                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">
+                      {al ? `${al.used_credits}/${al.allocated_credits}` : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell text-muted-foreground">
+                      {al ? al.remaining : "-"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
