@@ -13,7 +13,7 @@ import SidePanel from "@/components/SidePanel";
 import { useToast, FieldLabel, INPUT_CLASS, initials } from "../_shared";
 import { useConfirm } from "@/components/ConfirmDialog";
 
-const PACKAGES = ["starter", "growth", "scale", "enterprise"];
+const PACKAGES = ["starter", "pro", "enterprise"];
 const STATUSES = ["active", "trial", "expired"];
 
 // Client Management (super-admin): every client organization with its full column

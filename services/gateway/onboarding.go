@@ -40,10 +40,14 @@ type signupPackage struct {
 var signupPackages = map[string]signupPackage{
 	// 7 days, 50 credits, no charge. Long enough to feel the product on real
 	// leads, short enough that "we'll decide later" has a date attached.
-	"trial":    {Label: "Free Trial", PerSeat: 0, BonusCredits: 50, TrialDays: 7},
-	"starter":  {Label: "Starter", PerSeat: 200_000, BonusCredits: 200, MinSeats: 1},   // 1-10 seat
-	"growth":   {Label: "Growth", PerSeat: 150_000, BonusCredits: 200, MinSeats: 11},   // 11-50 seat
-	"business": {Label: "Business", PerSeat: 100_000, BonusCredits: 200, MinSeats: 51}, // 51-100 seat
+	"trial":      {Label: "Free Trial", PerSeat: 0, BonusCredits: 50, TrialDays: 7},
+	"starter":    {Label: "Starter", PerSeat: 200_000, BonusCredits: 200, MinSeats: 1},    // 1-10 seat
+	"pro":        {Label: "Pro", PerSeat: 150_000, BonusCredits: 200, MinSeats: 11},       // 11-50 seat
+	"enterprise": {Label: "Enterprise", PerSeat: 100_000, BonusCredits: 200, MinSeats: 51}, // 51-100 seat
+	// Legacy keys: rows created before the 2026-07 rename (pending requests,
+	// dedupe checks, approvals) must keep resolving. Same pricing, new labels.
+	"growth":   {Label: "Pro", PerSeat: 150_000, BonusCredits: 200, MinSeats: 11},
+	"business": {Label: "Enterprise", PerSeat: 100_000, BonusCredits: 200, MinSeats: 51},
 }
 
 type topupPackage struct {
@@ -53,9 +57,15 @@ type topupPackage struct {
 }
 
 var topupPackages = map[string]topupPackage{
-	"booster":    {Label: "Booster", Credits: 500, PerCredit: 400},
-	"pro":        {Label: "Pro", Credits: 1000, PerCredit: 375},
-	"enterprise": {Label: "Enterprise", Credits: 2000, PerCredit: 350},
+	"lite": {Label: "Lite", Credits: 500, PerCredit: 400},
+	"plus": {Label: "Plus", Credits: 1000, PerCredit: 375},
+	"max":  {Label: "Max", Credits: 2000, PerCredit: 350},
+	// Legacy keys from before the 2026-07 rename; old pending rows still
+	// approve. NOTE "pro" here is the old TOPUP pack, distinct from the
+	// signup tier "pro" (different map, rows carry type signup|topup).
+	"booster":    {Label: "Lite", Credits: 500, PerCredit: 400},
+	"pro":        {Label: "Plus", Credits: 1000, PerCredit: 375},
+	"enterprise": {Label: "Max", Credits: 2000, PerCredit: 350},
 }
 
 // POST /api/public/register - the one public entry for both request kinds.

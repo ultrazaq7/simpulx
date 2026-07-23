@@ -33,13 +33,13 @@ const TIER_EN: Record<string, { per: string; tagline: string; features: string[]
     per: "seat / month", tagline: "1 to 10 seats",
     features: ["200 AI credits / user", "Team inbox + AI nurture", "WhatsApp calls", "E-catalog & broadcast"],
   },
-  growth: {
+  pro: {
     per: "seat / month", tagline: "11 to 50 seats, most popular",
     features: ["200 AI credits / user", "Everything in Starter", "Automation & lead scoring", "Full revenue analytics"],
   },
-  business: {
+  enterprise: {
     per: "seat / month", tagline: "51 to 100 seats, cheapest per seat",
-    features: ["200 AI credits / user", "Everything in Growth", "Onboarding & priority support", "Flexible AI credit top-ups"],
+    features: ["200 AI credits / user", "Everything in Pro", "Onboarding & priority support", "Flexible AI credit top-ups"],
   },
 };
 
@@ -75,23 +75,23 @@ const SIGNUP_TIERS = [
     features: ["200 kredit AI / pengguna", "Inbox tim + AI nurture", "Panggilan WhatsApp", "E-catalog & broadcast"],
   },
   {
-    key: "growth", name: "Growth", price: 150_000, per: "seat / bulan",
+    key: "pro", name: "Pro", price: 150_000, per: "seat / bulan",
     credits: 200, highlight: true, minSeats: 11,
     tagline: "11 sampai 50 seat, paling banyak dipilih",
     features: ["200 kredit AI / pengguna", "Semua fitur Starter", "Automation & lead scoring", "Analitik revenue lengkap"],
   },
   {
-    key: "business", name: "Business", price: 100_000, per: "seat / bulan",
+    key: "enterprise", name: "Enterprise", price: 100_000, per: "seat / bulan",
     credits: 200, highlight: false, minSeats: 51,
     tagline: "51 sampai 100 seat, termurah per seat",
-    features: ["200 kredit AI / pengguna", "Semua fitur Growth", "Onboarding & prioritas support", "Top-up kredit AI fleksibel"],
+    features: ["200 kredit AI / pengguna", "Semua fitur Pro", "Onboarding & prioritas support", "Top-up kredit AI fleksibel"],
   },
 ];
 
 const TOPUP_PACKS = [
-  { key: "booster", name: "Booster", credits: 500, perCredit: 400 },
-  { key: "pro", name: "Pro", credits: 1000, perCredit: 375 },
-  { key: "enterprise", name: "Enterprise", credits: 2000, perCredit: 350 },
+  { key: "lite", name: "Lite", credits: 500, perCredit: 400 },
+  { key: "plus", name: "Plus", credits: 1000, perCredit: 375 },
+  { key: "max", name: "Max", credits: 2000, perCredit: 350 },
 ];
 
 const INDUSTRIES = [
