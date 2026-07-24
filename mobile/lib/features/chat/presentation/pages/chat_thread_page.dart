@@ -69,14 +69,43 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
   Timer? _aiTimer;
 
   /// Scroll to and briefly flash the quoted message when its preview is tapped.
-  void _scrollToMessage(String id) {
-    final ctx = _msgKeys[id]?.currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(ctx,
-          alignment: 0.35,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOut);
+  /// WhatsApp-style: if the message isn't loaded yet, page older messages in
+  /// until it is, then step-scroll to it (it may be far off-screen and unbuilt)
+  /// and ensureVisible for the precise landing.
+  Future<void> _scrollToMessage(String id) async {
+    final ctrl = ref.read(chatThreadControllerProvider(widget.conversationId));
+    int guard = 0;
+    while (!ctrl.state.messages.any((m) => m.id == id) &&
+        ctrl.state.hasMore &&
+        guard < 30) {
+      await ctrl.loadOlder();
+      guard++;
+      await Future<void>.delayed(const Duration(milliseconds: 16));
     }
+    if (!mounted) return;
+    final msgs = ctrl.state.messages;
+    final idx = msgs.indexWhere((m) => m.id == id);
+    if (idx < 0) return; // quoted message not found (shouldn't happen)
+    for (int i = 0; i < 14; i++) {
+      final ctx = _msgKeys[id]?.currentContext;
+      if (ctx != null) {
+        await Scrollable.ensureVisible(ctx,
+            alignment: 0.4,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeInOut);
+        break;
+      }
+      // Not built yet: jump toward its estimated position so the row builds.
+      if (_scroll.hasClients && msgs.length > 1) {
+        final p = _scroll.position;
+        final target = (p.maxScrollExtent * (idx / (msgs.length - 1)))
+            .clamp(p.minScrollExtent, p.maxScrollExtent);
+        await _scroll.animateTo(target,
+            duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 45));
+    }
+    if (!mounted) return;
     setState(() => _flashId = id);
     _flashTimer?.cancel();
     _flashTimer = Timer(const Duration(milliseconds: 1600), () {

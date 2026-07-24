@@ -224,17 +224,35 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const { t } = useI18n();
   const [statusOpen, setStatusOpen] = useState(false);
-  // Tap a quoted reply -> scroll to the original message and flash it briefly.
+  // Tap a quoted reply -> jump to the original message and flash it (WhatsApp-
+  // style). If it isn't loaded, page older messages in until it is, then the
+  // effect below scrolls to it once the timeline re-renders with it.
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [pendingScrollId, setPendingScrollId] = useState<string | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollToMessage = useCallback((id: string) => {
-    const idx = timeline.findIndex((it) => it.kind === "msg" && it.m.id === id);
-    if (idx < 0) return; // the quoted message isn't in the loaded page (too old)
+  const scrollToMessage = useCallback(async (id: string) => {
+    if (timeline.some((it) => it.kind === "msg" && it.m.id === id)) { setPendingScrollId(id); return; }
+    let guard = 0, found = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let res: any = messagesQuery;
+    while (guard < 25 && res.hasNextPage && !found) {
+      res = await messagesQuery.fetchNextPage();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      found = (res.data?.pages || []).some((p: any) => (p.data || []).some((mm: any) => mm.id === id));
+      guard++;
+    }
+    if (found) setPendingScrollId(id);
+  }, [timeline, messagesQuery]);
+  useEffect(() => {
+    if (!pendingScrollId) return;
+    const idx = timeline.findIndex((it) => it.kind === "msg" && it.m.id === pendingScrollId);
+    if (idx < 0) return; // older page still merging; the timeline dep reruns this
     rowVirtualizer.scrollToIndex(idx, { align: "center" });
-    setFlashId(id);
+    setFlashId(pendingScrollId);
+    setPendingScrollId(null);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlashId(null), 1600);
-  }, [timeline, rowVirtualizer]);
+  }, [pendingScrollId, timeline, rowVirtualizer]);
   // Esc closes these header dropdowns (topmost-first), and registering them on
   // the shared stack also makes the inbox's "Esc closes conversation" defer.
   useEscClose(statusOpen, () => setStatusOpen(false));
