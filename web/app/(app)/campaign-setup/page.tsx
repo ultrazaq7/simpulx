@@ -99,7 +99,7 @@ export default function CampaignsPage() {
               ) : paged.map((c) => (
                 <tr key={c.id} className={cn("border-b border-border/60 hover:bg-muted/50 transition-colors", c.status !== "active" && "opacity-65")}>
                   <td className="px-4 py-2.5">
-                    <button onClick={() => router.push(`/settings/campaigns/${c.id}`)} className="text-[13px] font-semibold text-foreground hover:text-primary truncate text-left outline-none">{c.name}</button>
+                    <button onClick={() => router.push(`/campaign-setup/${c.id}`)} className="text-[13px] font-semibold text-foreground hover:text-primary truncate text-left outline-none">{c.name}</button>
                     <p className="text-xs text-muted-foreground truncate">{c.dealer_name || t("settings.noCompanySet")}</p>
                   </td>
                   <td className="px-4 py-2.5">

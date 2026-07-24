@@ -5,7 +5,7 @@ import { Plus, Lock, Loader2, ChevronLeft, ChevronDown, Pencil, Trash2 } from "l
 import { api, getUser } from "@/lib/api";
 // Single source of truth for the built-in defaults. This page used to keep its
 // OWN copy, which is precisely how the three definitions drifted apart.
-import { defaultFor } from "@/lib/permissions";
+import { defaultFor, loadPermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import SidePanel from "@/components/SidePanel";
 import { useToast, PageBody, SettingsCard, FieldLabel, INPUT_CLASS, PrimaryButton, GhostButton, ROLE_PERMS } from "../_shared";
@@ -19,7 +19,7 @@ const GROUPS: { group: string; perms: Perm[] }[] = [
     { key: "menu_broadcasts", label: "Broadcasts" },
     { key: "menu_automation", label: "Automation" },
     { key: "menu_analytics", label: "Analytics" },
-    { key: "menu_audit_log", label: "Audit Log" },
+    { key: "menu_audit_log", label: "Logs" },
     { key: "menu_settings", label: "Settings" },
   ] },
   { group: "Dashboard", perms: [
@@ -57,6 +57,8 @@ const GROUPS: { group: string; perms: Perm[] }[] = [
     { key: "manage_campaigns", label: "Manage Campaigns" },
     { key: "manage_quick_replies", label: "Manage Quick Replies" },
     { key: "manage_templates", label: "Manage Message Templates" },
+    { key: "manage_custom_fields", label: "Manage Custom Fields" },
+    { key: "manage_pipeline_stages", label: "Manage Pipeline Stages" },
     { key: "manage_ai", label: "Manage AI & Knowledge Base" },
     { key: "manage_organization", label: "Manage Company Profile & Branding" },
   ] },
@@ -118,6 +120,9 @@ export default function RolesSettingsPage() {
       const toSave: Record<string, Record<string, boolean>> = {};
       for (const role of Object.keys(matrix)) { if (LOCKED.includes(role)) continue; toSave[role] = matrix[role]; }
       await api.updateRolePermissions({ matrix: toSave, custom_roles: customRoles });
+      // Drop the cached permission doc so nav/menus in this session reflect the
+      // change without a hard reload. Other users pick it up on their next load.
+      loadPermissions(true);
       setDirty(false);
       notify(t("settings.permissionsSaved"));
     } catch (e) { notify(String(e), "error"); }

@@ -12,8 +12,8 @@ import { Select } from "@/components/Select";
 import { AgentMultiSelect } from "@/components/AgentMultiSelect";
 import { CityMultiSelect } from "@/components/CityMultiSelect";
 import MultiSelectFilter from "@/app/(app)/inbox/components/MultiSelectFilter";
-import { WizardModal, WizardField, BackButton, ContinueButton } from "../channels/WizardModal";
-import { FieldLabel, PrimaryButton, InfoHint } from "../_shared";
+import { WizardModal, WizardField, BackButton, ContinueButton } from "../settings/channels/WizardModal";
+import { FieldLabel, PrimaryButton, InfoHint } from "../settings/_shared";
 
 const STEPS = ["Campaign", "Branches", "Review"];
 

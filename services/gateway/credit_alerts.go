@@ -197,7 +197,7 @@ func campaignCreditAlertHTML(campaignName string, remaining, threshold int) stri
   <p style="color:#555;font-size:14px;line-height:1.6">The campaign <b>%s</b> has only <b>%d</b> AI reply credits left (alert threshold: %d).</p>
   <p style="color:#555;font-size:14px;line-height:1.6">When this campaign's allocation hits zero, its AI assistant stops replying and leads fall back to human agents. Allocate more credits to keep it running.</p>
   <p style="margin:24px 0">
-    <a href="%s/settings/campaigns" style="background:#0E5B54;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">Manage campaign credits</a>
+    <a href="%s/campaign-setup" style="background:#0E5B54;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">Manage campaign credits</a>
   </p>
   <p style="color:#888;font-size:12px;margin-top:24px">You are receiving this because you are the account owner.</p>
 </div>`, campaignName, remaining, threshold, appBaseURL())

@@ -1843,27 +1843,8 @@ function MarketingAnalytics() {
         </div>
       </Card>
 
-      {/* Google Top 10 Keywords (left, hidden when empty) + Facebook Age Demography (right) */}
-      <div className={cn("grid grid-cols-1 gap-4 mb-5 items-stretch", hasKw ? "lg:grid-cols-2" : "")}>
-        {hasKw && (
-        <Card title={t("dashboard.googleTop10SearchKeywords")} subtitle={t("dashboard.clicksVsImpressions")}>
-          <div className="p-4">
-            {(
-              <div className="flex flex-col gap-2.5">
-                {kw.map((k, i) => (
-                  <div key={k.keyword + i} className="grid grid-cols-[130px_1fr] gap-2 items-center">
-                    <span className="text-[11px] text-foreground truncate" title={k.keyword}>{k.keyword}</span>
-                    <div>
-                      <div className="flex items-center gap-2"><div className="h-2 rounded-sm" style={{ width: `${logW(k.clicks)}%`, background: "#0E5B54" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.clicks)}</span></div>
-                      <div className="flex items-center gap-2 mt-1"><div className="h-2 rounded-sm" style={{ width: `${logW(k.impressions)}%`, background: "#0b1220" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.impressions)}</span></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-        )}
+      {/* Facebook Age Demography (left) + Gender Demography (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 mb-5 items-stretch">
         <div className="bg-card rounded-lg border border-border shadow-xs overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
             <div>
@@ -1893,10 +1874,6 @@ function MarketingAnalytics() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Gender Demography (left, like the PDF) + Monthly Leads Performance */}
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4 mb-5 items-stretch">
       <Card title={t("dashboard.genderDemography")} subtitle={t("dashboard.impressionShare")}>
         <div className="p-4">
           {genderRows.length === 0 ? (
@@ -1923,8 +1900,29 @@ function MarketingAnalytics() {
           )}
         </div>
       </Card>
+      </div>
 
-      {/* Monthly Leads Performance - total + delta beside the by-source area */}
+      {/* Google Top 10 Keywords (left, hidden when empty) + Monthly Leads Performance */}
+      <div className={cn("grid grid-cols-1 gap-4 mb-5 items-stretch", hasKw ? "lg:grid-cols-[380px_1fr]" : "")}>
+        {hasKw && (
+        <Card title={t("dashboard.googleTop10SearchKeywords")} subtitle={t("dashboard.clicksVsImpressions")}>
+          <div className="p-4">
+            {(
+              <div className="flex flex-col gap-2.5">
+                {kw.map((k, i) => (
+                  <div key={k.keyword + i} className="grid grid-cols-[130px_1fr] gap-2 items-center">
+                    <span className="text-[11px] text-foreground truncate" title={k.keyword}>{k.keyword}</span>
+                    <div>
+                      <div className="flex items-center gap-2"><div className="h-2 rounded-sm" style={{ width: `${logW(k.clicks)}%`, background: "#0E5B54" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.clicks)}</span></div>
+                      <div className="flex items-center gap-2 mt-1"><div className="h-2 rounded-sm" style={{ width: `${logW(k.impressions)}%`, background: "#0b1220" }} /><span className="text-[10px] text-muted-foreground tabular-nums">{fmtInt(k.impressions)}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+        )}
       <Card title={t("dashboard.monthlyLeadsPerformance")} subtitle={t("dashboard.leadsBySourceOverTime")}>
         <div className="p-4">
           {leadsBySource.length === 0 ? (

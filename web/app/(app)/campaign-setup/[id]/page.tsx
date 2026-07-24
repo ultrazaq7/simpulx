@@ -13,7 +13,7 @@ import { Select } from "@/components/Select";
 import ManageAdsPanel, { useEscClose } from "./ManageAdsPanel";
 import { cn, fmtDateTimeShort } from "@/lib/utils";
 import type { CampaignDetail, CatalogItem, Template, AIStyle, AdsMetricRow, AdsAlertRow } from "@/lib/types";
-import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../_shared";
+import { useToast, PageBody, FieldLabel, INPUT_CLASS } from "../../settings/_shared";
 import { Tip } from "@/components/ui/tooltip";
 import { useConfirm } from "@/components/ConfirmDialog";
 import UnsavedBar from "@/components/UnsavedBar";
@@ -44,7 +44,7 @@ export default function CampaignDetailPage() {
   const [tab, setTabState] = useState<Tab>(urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "credits");
   const setTab = (t: Tab) => {
     setTabState(t);
-    router.replace(`/settings/campaigns/${id}?tab=${t}`, { scroll: false });
+    router.replace(`/campaign-setup/${id}?tab=${t}`, { scroll: false });
   };
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +64,7 @@ export default function CampaignDetailPage() {
     <PageBody wide>
       {ToastHost}
       <div className="w-full">
-        <button onClick={() => router.push("/settings/campaigns")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
+        <button onClick={() => router.push("/campaign-setup")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground mb-3 outline-none">
           <ArrowLeft className="w-4 h-4" /> {t("settings.campaigns")}
         </button>
         {loading ? (

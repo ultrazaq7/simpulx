@@ -6,7 +6,7 @@ import {
   MessageCircle, Settings, MessageSquareText,
   ChevronLeft, ChevronRight, Bell, LogOut, User as UserIcon,
   CheckCircle2, Loader2, ChevronDown, Activity, LayoutDashboard, MessagesSquare, Users, SlidersHorizontal, Megaphone, Wrench, Globe, Boxes,
-  ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, Building, FormInput, Menu, Zap, ListOrdered
+  ScrollText, BarChart3, ShieldCheck, FileText, RadioTower, GitBranch, Plug, Search, ClipboardList, Building2, Building, FormInput, Menu, Zap, ListOrdered, Home
 } from "lucide-react";
 import { WS_URL } from "@/lib/api";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
@@ -104,6 +104,9 @@ const NAV_TOP = [
   { href: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard", perm: "menu_dashboard" },
   { href: "/inbox", icon: MessageSquareText, labelKey: "nav.inbox", perm: "menu_chats", cutout: true },
   { href: "/contacts", icon: Users, labelKey: "nav.contacts", perm: "menu_contacts" },
+  { href: "/campaign-setup", icon: Building2, labelKey: "Campaign Setup", perm: "manage_campaigns" },
+  { href: "/listings", icon: Home, labelKey: "settings.listings", perm: "manage_campaigns", propertyOnly: true },
+  { href: "/automation", icon: GitBranch, labelKey: "settings.automations", perm: "menu_automation" },
   { href: "/broadcasts", icon: Megaphone, labelKey: "nav.broadcasts", perm: "menu_broadcasts" },
 ];
 
@@ -140,10 +143,9 @@ const PAGE_TITLES: Record<string, { category: string; title: string; icon?: any 
   "/settings/stages": { category: "CUSTOMIZATIONS", title: "Pipeline Stages", icon: ListOrdered },
   "/settings/user-management": { category: "COMPANY SETTINGS", title: "User Management", icon: UserIcon },
   "/settings/roles": { category: "COMPANY SETTINGS", title: "Roles & Permissions", icon: ShieldCheck },
-  "/settings/campaigns": { category: "CHANNELS", title: "Campaigns", icon: Building2 },
-  "/settings/listings": { category: "CHANNELS", title: "Listing Properti", icon: Building2 },
+  "/campaign-setup": { category: "CAMPAIGNS", title: "Campaign Setup", icon: Building2 },
+  "/listings": { category: "CAMPAIGNS", title: "Listing Properti", icon: Home },
   "/settings/templates": { category: "CUSTOMIZATIONS", title: "Message Templates", icon: FileText },
-  "/settings/automation": { category: "CUSTOMIZATIONS", title: "Automation", icon: GitBranch },
   "/settings/wa-forms": { category: "CUSTOMIZATIONS", title: "WhatsApp Forms", icon: ClipboardList },
   "/settings/quick-replies": { category: "CUSTOMIZATIONS", title: "Quick Replies", icon: Zap },
   "/settings/channels": { category: "CHANNEL & INTEGRATIONS", title: "Channel" },
@@ -662,7 +664,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        {NAV_TOP.filter((n) => can(n.perm)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} cutout={(n as any).cutout} noFill={(n as any).noFill} />)}
+        {NAV_TOP.filter((n) => can(n.perm) && (!(n as any).propertyOnly || !!user?.is_property)).map((n) => <NavItem key={n.href} href={n.href} icon={n.icon} label={t(n.labelKey)} cutout={(n as any).cutout} noFill={(n as any).noFill} />)}
         <div className="flex-1" />
 
         {/* Collapse rail toggle · desktop only (mobile uses the drawer). */}

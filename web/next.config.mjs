@@ -11,6 +11,17 @@ const nextConfig = {
   },
   // Cache the brand/static assets so the logo, favicon, and splash don't refetch
   // on every page load (they change rarely; a week keeps them fresh enough).
+  // Campaign Setup, Listings and Automation moved out of Settings into the main
+  // nav with shorter slugs. Keep the old settings URLs working so links already
+  // sent in emails / notifications (and bookmarks) don't 404.
+  async redirects() {
+    return [
+      { source: "/settings/campaigns", destination: "/campaign-setup", permanent: true },
+      { source: "/settings/campaigns/:path*", destination: "/campaign-setup/:path*", permanent: true },
+      { source: "/settings/listings", destination: "/listings", permanent: true },
+      { source: "/settings/automation", destination: "/automation", permanent: true },
+    ];
+  },
   async headers() {
     const oneWeek = "public, max-age=604800, stale-while-revalidate=86400";
     const assets = [

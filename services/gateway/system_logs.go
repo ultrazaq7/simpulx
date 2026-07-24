@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -50,27 +51,65 @@ func convFilter(alias string, p logParams, args []any) (string, []any) {
 	return clause, args
 }
 
-// logScope narrows a system-log query to the campaigns the caller belongs to.
+// scopeConvSQL builds the conversation-based visibility predicate for a resolved
+// visibility tier, so system logs answer exactly what the inbox answers:
+//   - visOrg (owner/admin)      : the whole org, no extra filter.
+//   - visCampaign (manager/...) : the caller's campaigns and branches (managerScope).
+//   - visAssignedOnly (agent)   : ONLY conversations assigned to the caller.
 //
-// Every handler in this file used to scope on organization_id ALONE, with no
-// role check anywhere: `campaign_id` came from the query string, i.e. from the
-// user, so it filtered but never restricted. A manager or any campaign-bound
-// role could therefore read every message body, contact phone/email, call and
-// transcript in the whole org, including campaigns they are not a member of.
-// That is the exact opposite of the campaign-isolation rule (BR-40/41/42), which
-// is meant to hold at the query layer.
-//
-// alias is the conversations alias the rows hang off. Reuses managerScope so
-// logs, inbox and reports all answer "which campaigns are mine" identically -- a
-// second definition here would be one more place to forget branch membership.
-// orgWideCampaignView is deliberately restrictive by default: only owner/admin
-// see everything, and an unrecognised role gets the narrow view.
-func logScope(a authInfo, alias string, args []any) (string, []any) {
-	if orgWideCampaignView(a) {
+// It used to be two-tier -- everyone below owner/admin got the campaign view -- so an
+// agent could read every message body, contact phone/email, call and transcript of
+// their whole CAMPAIGN in the logs, wider than the inbox ever showed them. alias is
+// the conversations alias the rows hang off ("cv"); userID is the caller's id.
+func scopeConvSQL(vis convVisibility, alias, userID string, args []any) (string, []any) {
+	switch vis {
+	case visOrg:
 		return "", args
+	case visCampaign:
+		args = append(args, userID)
+		return " AND " + managerScope(alias, len(args)), args
+	default: // visAssignedOnly
+		p := ""
+		if alias != "" {
+			p = alias + "."
+		}
+		args = append(args, userID)
+		return fmt.Sprintf(" AND %sassigned_agent_id = $%d", p, len(args)), args
 	}
-	args = append(args, a.UserID)
-	return " AND " + managerScope(alias, len(args)), args
+}
+
+// scopeUserSQL is scopeConvSQL for logs keyed on a USER column (activity events,
+// audit actor) rather than a conversation. visCampaign => the caller plus everyone
+// they share a campaign or branch with (so a manager sees their team); visAssignedOnly
+// => only the caller's own rows. userCol is the qualified column ("ev.user_id",
+// "actor_id").
+func scopeUserSQL(vis convVisibility, userCol, userID string, args []any) (string, []any) {
+	switch vis {
+	case visOrg:
+		return "", args
+	case visCampaign:
+		args = append(args, userID)
+		i := len(args)
+		return fmt.Sprintf(` AND (%s = $%d OR %s IN (
+		    SELECT user_id FROM campaign_agents WHERE campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)
+		    UNION
+		    SELECT user_id FROM branch_agents WHERE branch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $%d)))`, userCol, i, userCol, i, i), args
+	default: // visAssignedOnly -- own rows only
+		args = append(args, userID)
+		return fmt.Sprintf(" AND %s = $%d", userCol, len(args)), args
+	}
+}
+
+// logScope resolves the caller's three-tier inbox visibility and applies the
+// conversation-based scope. Same resolver the inbox and reports use, so a row a
+// caller may not see in the inbox never leaks through a log.
+func (s *server) logScope(ctx context.Context, a authInfo, alias string, args []any) (string, []any) {
+	return scopeConvSQL(s.conversationVisibility(ctx, a), alias, a.UserID, args)
+}
+
+// userLogScope is logScope for user-keyed logs (activity, audit actor).
+func (s *server) userLogScope(ctx context.Context, a authInfo, userCol string, args []any) (string, []any) {
+	return scopeUserSQL(s.conversationVisibility(ctx, a), userCol, a.UserID, args)
 }
 
 // dateFilter appends a created_at range on the given column, growing args.
@@ -102,7 +141,7 @@ func (s *server) handleLogMessages(w http.ResponseWriter, r *http.Request) {
 	args := []any{a.OrgID}
 	df, args := dateFilter("m.created_at", p, args)
 	cf, args := convFilter("cv", p, args)
-	sc, args := logScope(a, "cv", args)
+	sc, args := s.logScope(r.Context(), a, "cv", args)
 	lf := ""
 	if p.label != "" {
 		args = append(args, p.label)
@@ -146,7 +185,7 @@ func (s *server) handleLogConversations(w http.ResponseWriter, r *http.Request) 
 	args := []any{a.OrgID}
 	df, args := dateFilter("cv.created_at", p, args)
 	cf, args := convFilter("cv", p, args)
-	sc, args := logScope(a, "cv", args)
+	sc, args := s.logScope(r.Context(), a, "cv", args)
 
 	// Shared joins. assigned_at = first 'assigned' event; avg_response_sec = mean
 	// gap from each customer message to the agent's next reply (window pass over
@@ -199,19 +238,10 @@ func (s *server) handleLogActivity(w http.ResponseWriter, r *http.Request) {
 	args := []any{a.OrgID}
 	df, args := dateFilter("ev.at", p, args)
 
-	// Activity rows hang off a USER, not a conversation, so campaign membership is
-	// expressed as "people I share a campaign or branch with" (plus yourself, so a
-	// manager with no co-members still sees their own history). Mirrors the same
-	// predicate the team/agent-performance query already uses.
-	sc := ""
-	if !orgWideCampaignView(a) {
-		args = append(args, a.UserID)
-		i := len(args)
-		sc = fmt.Sprintf(` AND (ev.user_id = $%d OR ev.user_id IN (
-		    SELECT user_id FROM campaign_agents WHERE campaign_id IN (SELECT campaign_id FROM campaign_agents WHERE user_id = $%d)
-		    UNION
-		    SELECT user_id FROM branch_agents WHERE branch_id IN (SELECT branch_id FROM branch_agents WHERE user_id = $%d)))`, i, i, i)
-	}
+	// Activity rows hang off a USER, not a conversation. Three-tier like the inbox:
+	// owner/admin see everyone; a manager sees the people they share a campaign or
+	// branch with (plus themselves); an agent sees only their OWN activity.
+	sc, args := s.userLogScope(r.Context(), a, "ev.user_id", args)
 
 	base := `FROM user_activity_events ev
 	          JOIN users u ON u.id = ev.user_id
@@ -239,7 +269,7 @@ func (s *server) handleLogCalls(w http.ResponseWriter, r *http.Request) {
 	// A call whose conversation_id is NULL cannot be attributed to a campaign, so
 	// the scope predicate drops it for campaign-bound roles. That is the intended
 	// direction: an unattributable call is not evidence that it belongs to you.
-	sc, args := logScope(a, "cv", args)
+	sc, args := s.logScope(r.Context(), a, "cv", args)
 
 	base := `FROM calls c
 	          LEFT JOIN conversations cv ON cv.id = c.conversation_id

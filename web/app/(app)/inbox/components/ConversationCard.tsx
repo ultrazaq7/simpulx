@@ -99,10 +99,10 @@ const ConversationCard = memo(function ConversationCard({
           return (
             <Tip label={channelName || m.name} side="top">
               <span
-                className="absolute -bottom-1 -right-1 w-[17px] h-[17px] rounded-full ring-2 ring-card grid place-items-center text-white"
+                className="absolute -bottom-0.5 -right-0.5 w-[13px] h-[13px] rounded-full ring-2 ring-card grid place-items-center text-white"
                 style={{ background: m.gradient ?? m.color }}
               >
-                <CIcon className="w-[10px] h-[10px]" />
+                <CIcon className="w-[8px] h-[8px]" />
               </span>
             </Tip>
           );

@@ -13,7 +13,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { EVENT_GROUPS, EVENT_LIVE, eventLabel } from "@/lib/automationMeta";
 import type { Automation, Channel } from "@/lib/types";
 import SidePanel from "@/components/SidePanel";
-import { useToast, PageBody, FieldLabel, INPUT_CLASS, PrimaryButton } from "../_shared";
+import { useToast, PageBody, FieldLabel, INPUT_CLASS, PrimaryButton } from "../settings/_shared";
 
 export default function AutomationPage() {
   const { t } = useI18n();

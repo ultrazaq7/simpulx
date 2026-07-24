@@ -38,13 +38,19 @@ func (s *server) audit(ctx context.Context, a authInfo, action, entityType, enti
 // GET /api/audit-log
 func (s *server) handleListAuditLog(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
+	// Same three-tier visibility as every other log: owner/admin see every actor;
+	// a manager sees their campaign/branch team; an agent sees only their own
+	// actions. Without this the audit tab returned the whole org to anyone allowed
+	// to open it.
+	args := []any{a.OrgID}
+	sc, args := s.userLogScope(r.Context(), a, "actor_id", args)
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT id::text AS id, actor_name, action, entity_type, entity_id, detail, created_at
 		   FROM audit_log
-		  WHERE organization_id = $1
+		  WHERE organization_id = $1`+sc+`
 		  ORDER BY created_at DESC
 		  LIMIT 200`,
-		a.OrgID,
+		args...,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

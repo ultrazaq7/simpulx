@@ -216,24 +216,7 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
       </Section>
 
       {/* Google top keywords + Age demography */}
-      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: hasKw ? "1fr 1fr" : "1fr", gap: 14, paddingTop: 12 }}>
-        {hasKw && (
-        <Section title={t("dashboard.googleTop10SearchKeywords")} legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
-          {(
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {kw.map((k, i) => (
-                <div key={k.keyword + i} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={k.keyword}>{k.keyword}</span>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: GREEN_DK, width: `${logW(k.clicks)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.clicks)}</span></div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: NAVY, width: `${logW(k.impressions)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.impressions)}</span></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-        )}
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 14, paddingTop: 12, alignItems: "start" }}>
         <Section title={t("dashboard.ageDemography")} legend={[[NAVY, "Impressions"], [GREEN_DK, "Clicks"]]}>
           {age.length === 0 ? <EmptyNote text={t("report.noAgeBreakdownInThis")} /> : (() => {
             // Shares (%) on one comparable scale, matching the dashboard: raw
@@ -258,10 +241,6 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
             );
           })()}
         </Section>
-      </div>
-
-      {/* Gender demography + Monthly leads breakdown */}
-      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 14, paddingTop: 12 }}>
         <Section title={t("dashboard.genderDemography")}>
           {gender.length === 0 ? <EmptyNote text={t("report.noGenderBreakdownInThis")} /> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -282,6 +261,27 @@ export function AdsReportView({ perf, keywords, ga4, camps, campaigns, rangeLabe
             </div>
           )}
         </Section>
+      </div>
+
+      {/* Google Top 10 Keywords (if present) + Monthly leads breakdown */}
+      <div className="print-avoid-break" style={{ display: "grid", gridTemplateColumns: hasKw ? "380px 1fr" : "1fr", gap: 14, paddingTop: 12, alignItems: "start" }}>
+        {hasKw && (
+        <Section title={t("dashboard.googleTop10SearchKeywords")} legend={[[GREEN_DK, "Clicks"], [NAVY, "Impressions"]]}>
+          {(
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {kw.map((k, i) => (
+                <div key={k.keyword + i} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={k.keyword}>{k.keyword}</span>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 9, borderRadius: 2, background: GREEN_DK, width: `${logW(k.clicks)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.clicks)}</span></div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}><div style={{ height: 9, borderRadius: 2, background: NAVY, width: `${logW(k.impressions)}%` }} /><span style={{ fontSize: 9, color: "#64748b" }}>{num(k.impressions)}</span></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+        )}
         <Section title={t("report.monthlyLeadsPerformanceBreakdown")}>
           {dailyLeads.length === 0 ? <EmptyNote text={t("report.noLeadDataInThis")} /> : (
             <div style={{ height: 200 }}>

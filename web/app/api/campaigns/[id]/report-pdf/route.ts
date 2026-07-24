@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
   if (!body.token) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const url = new URL(`/settings/campaigns/${id}`, req.nextUrl.origin);
+  const url = new URL(`/campaign-setup/${id}`, req.nextUrl.origin);
   url.searchParams.set("tab", body.tab || "overview");
   if (body.preset) url.searchParams.set("preset", body.preset);
   if (body.from) url.searchParams.set("from", body.from);

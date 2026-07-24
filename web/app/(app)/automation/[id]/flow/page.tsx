@@ -426,7 +426,7 @@ function Builder() {
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-card shrink-0 z-10">
-        <button onClick={() => router.push("/settings/automation")} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><ArrowLeft className="w-5 h-5" /></button>
+        <button onClick={() => router.push("/automation")} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none"><ArrowLeft className="w-5 h-5" /></button>
         <div className="min-w-0">
           <p className="font-bold text-[15px] text-foreground truncate">{auto.name}</p>
           <p className="text-[11.5px] text-muted-foreground">{t("automation.visualFlow")} {nodes.length} node{nodes.length === 1 ? "" : "s"} {t("automation.trigger")} {t(eventLabel(auto.trigger_type))}</p>

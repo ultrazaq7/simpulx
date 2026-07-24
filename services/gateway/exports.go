@@ -46,7 +46,12 @@ func (s *server) handleCreateExport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	go s.runExport(jobID, a.OrgID, b.Kind, b.From, b.To, b.CampaignID, b.ChannelID, b.Label)
+	// Resolve visibility on the request goroutine (it reads the org matrix), then
+	// hand the tier + caller id to the background job so the generated CSV is scoped
+	// to exactly what the requester may see -- an agent's export must not contain the
+	// whole campaign's messages, and a manager's must not contain other campaigns.
+	vis := s.conversationVisibility(r.Context(), a)
+	go s.runExport(jobID, a.OrgID, b.Kind, b.From, b.To, b.CampaignID, b.ChannelID, b.Label, a.UserID, vis)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"id": jobID, "status": "queued"})
@@ -55,8 +60,12 @@ func (s *server) handleCreateExport(w http.ResponseWriter, r *http.Request) {
 // GET /api/exports
 func (s *server) handleListExports(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
-	// campaign_id/channel_id are now comma-separated id lists (multi-select), so
-	// resolve every id to a name and join them for the Downloads "Filters" chips.
+	// A download is a snapshot of scoped data, so who may see it in the list mirrors
+	// the same three tiers: owner/admin see all exports; a manager sees their team's;
+	// an agent sees only their own. campaign_id/channel_id are comma-separated id
+	// lists (multi-select), so resolve every id to a name for the "Filters" chips.
+	args := []any{a.OrgID}
+	sc, args := s.userLogScope(r.Context(), a, "e.requested_by", args)
 	rows, err := s.queryMaps(r.Context(),
 		`SELECT e.id::text, e.kind, e.date_from, e.date_to, e.status, e.row_count, e.file_url,
 		        e.error, e.expires_at, e.created_at, e.completed_at, u.full_name AS requested_by,
@@ -67,7 +76,7 @@ func (s *server) handleListExports(w http.ResponseWriter, r *http.Request) {
 		          WHERE ch.id::text = ANY(string_to_array(e.channel_id, ','))) AS channel_name
 		   FROM export_jobs e
 		   LEFT JOIN users u ON u.id = e.requested_by
-		  WHERE e.organization_id = $1 ORDER BY e.created_at DESC LIMIT 100`, a.OrgID)
+		  WHERE e.organization_id = $1`+sc+` ORDER BY e.created_at DESC LIMIT 100`, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -76,7 +85,7 @@ func (s *server) handleListExports(w http.ResponseWriter, r *http.Request) {
 }
 
 // runExport generates the full CSV for the job and flips its status (background).
-func (s *server) runExport(jobID, orgID, kind, from, to, campaignID, channelID, label string) {
+func (s *server) runExport(jobID, orgID, kind, from, to, campaignID, channelID, label, viewerID string, vis convVisibility) {
 	ctx := context.Background()
 	_, _ = s.pool.Exec(ctx, `UPDATE export_jobs SET status='processing' WHERE id=$1`, jobID)
 
@@ -98,6 +107,15 @@ func (s *server) runExport(jobID, orgID, kind, from, to, campaignID, channelID, 
 		args = append(args, label)
 		filter += fmt.Sprintf(" AND $%d = ANY(ct.tags)", len(args))
 	}
+	// Visibility scope, identical to the on-screen log handlers: activity is keyed on
+	// the user, everything else on the conversation the row hangs off.
+	var sc string
+	if kind == "activity" {
+		sc, args = scopeUserSQL(vis, "ev.user_id", viewerID, args)
+	} else {
+		sc, args = scopeConvSQL(vis, "cv", viewerID, args)
+	}
+	filter += sc
 	q = fmt.Sprintf(q, filter)
 
 	rows, err := s.queryMaps(ctx, q, args...)

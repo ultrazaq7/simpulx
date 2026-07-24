@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Settings, FormInput, Bell, User, ShieldCheck, ListOrdered,
-  Building2, Building, FileText, GitBranch, RadioTower, Clock, ClipboardList, Home,
+  Building2, Building, FileText, RadioTower, Clock, ClipboardList,
   ChevronsLeft, Boxes, Zap, SlidersHorizontal, ChevronRight, Plug, Megaphone, ScrollText, ReceiptText, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, getUser } from "@/lib/api";
@@ -39,19 +39,16 @@ const GROUPS: { titleKey: string; flat?: boolean; items: NavItem[] }[] = [
       { key: "company-details", labelKey: "settings.company_details", icon: Building, href: "/settings/company-details", perm: "view_company_details" },
       { key: "user-management", labelKey: "settings.user_management", icon: User, href: "/settings/user-management", perm: "manage_team" },
       { key: "roles", labelKey: "settings.roles", icon: ShieldCheck, href: "/settings/roles", perm: "manage_roles" },
-      { key: "campaigns", labelKey: "settings.campaigns", icon: Building2, href: "/settings/campaigns", perm: "manage_campaigns" },
-      { key: "listings", labelKey: "settings.listings", icon: Home, href: "/settings/listings", perm: "manage_campaigns", propertyOnly: true },
     ],
   },
   {
     titleKey: "Customizations",
     items: [
-      { key: "templates", labelKey: "Message Templates", icon: FileText, href: "/settings/templates", perm: "view_settings" },
-      { key: "automation", labelKey: "settings.automations", icon: GitBranch, href: "/settings/automation", perm: "view_automation" },
+      { key: "templates", labelKey: "Message Templates", icon: FileText, href: "/settings/templates", perm: "manage_templates" },
       { key: "wa-forms", labelKey: "settings.forms", icon: ClipboardList, href: "/settings/wa-forms", perm: "view_automation" },
-      { key: "quick-replies", labelKey: "Quick Replies", icon: Zap, href: "/settings/quick-replies", perm: "view_settings" },
-      { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "view_settings" },
-      { key: "stages", labelKey: "settings.pipeline_stages", icon: ListOrdered, href: "/settings/stages", perm: "view_settings" },
+      { key: "quick-replies", labelKey: "Quick Replies", icon: Zap, href: "/settings/quick-replies", perm: "manage_quick_replies" },
+      { key: "custom-fields", labelKey: "settings.custom_fields", icon: FormInput, href: "/settings/custom-fields", perm: "manage_custom_fields" },
+      { key: "stages", labelKey: "settings.pipeline_stages", icon: ListOrdered, href: "/settings/stages", perm: "manage_pipeline_stages" },
     ],
   },
   {
@@ -135,7 +132,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   const navCount = groups.reduce((n, g) => n + g.items.length, 0);
 
   // Active item = the nav item whose href matches the current path (so nested
-  // routes like /settings/automation/<id>/flow keep "Automation" highlighted).
+  // routes like /settings/logs/<tab> keep "Logs" highlighted).
   // Query-aware: the Channel & Integrations items all live on /settings/channels
   // and differ only by ?tab, so we compare the tab too (defaulting to "channels").
   const hrefActive = (href: string): boolean => {

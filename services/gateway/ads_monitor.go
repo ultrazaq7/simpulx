@@ -521,7 +521,7 @@ func adsAlertHTML(campaign string, alerts []alert) string {
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%">` + rows.String() + `</table>` + note + `
     </td></tr>
     <tr><td style="padding:20px 26px 26px">
-      <a href="` + base + `/settings/campaigns" style="display:inline-block;background:#0E5B54;color:#FFFFFF;text-decoration:none;padding:12px 22px;border-radius:9px;font-weight:600;font-size:14px">Buka campaign</a>
+      <a href="` + base + `/campaign-setup" style="display:inline-block;background:#0E5B54;color:#FFFFFF;text-decoration:none;padding:12px 22px;border-radius:9px;font-weight:600;font-size:14px">Buka campaign</a>
     </td></tr>
     <tr><td style="padding:0 26px 24px;border-top:1px solid #E5E7EB">
       <p style="margin:16px 0 0;font-size:12px;color:#9CA3AF">Simpulx &middot; Inbox WhatsApp + AI untuk tim sales</p>

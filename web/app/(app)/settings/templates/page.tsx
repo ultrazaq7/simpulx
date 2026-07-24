@@ -7,6 +7,7 @@ import {
   UserRound, LibraryBig, Terminal, Upload,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { usePermissions } from "@/lib/permissions";
 import { Select } from "@/components/Select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { FilterButton, FilterDrawer, FilterField } from "@/components/FilterDrawer";
@@ -43,6 +44,8 @@ function maxPlaceholder(body: string) {
 export default function TemplatesPage() {
   const { t: tr } = useI18n();
   const { notify, confirm, ToastHost } = useToast();
+  const { can } = usePermissions();
+  const canManage = can("manage_templates"); // gates create / edit / delete / submit
   const [rows, setRows] = useState<Template[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -122,7 +125,7 @@ export default function TemplatesPage() {
           </FilterDrawer>
           <Tip label={tr("broadcasts.refresh")}><button onClick={load} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><RefreshCw className="w-[18px] h-[18px] text-muted-foreground" /></button></Tip>
           <div className="flex-1" />
-          <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />{tr("settings.newTemplate")}</PrimaryButton>
+          {canManage && <PrimaryButton onClick={openNew}><Plus className="w-4 h-4" />{tr("settings.newTemplate")}</PrimaryButton>}
         </div>
 
         <div className="overflow-auto flex-1 min-h-0">
@@ -161,11 +164,13 @@ export default function TemplatesPage() {
                   <td className="px-4 py-2.5"><span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ backgroundColor: sc.bg, color: sc.fg }}>{t.status}</span></td>
                   <td className="px-4 py-2.5 text-[12.5px] text-muted-foreground">{fmtDateTimeShort(t.updated_at)}</td>
                   <td className="px-4 py-2.5 text-right">
+                    {canManage ? (<>
                     {(t.status === "DRAFT" || t.status === "REJECTED") && (
                       <Tip label={tr("settings.submitToMeta")}><button onClick={() => submit(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Send className="w-[17px] h-[17px] text-primary" /></button></Tip>
                     )}
                     <Tip label={tr("common.edit")}><button onClick={() => openEdit(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Pencil className="w-[17px] h-[17px] text-muted-foreground" /></button></Tip>
                     <Tip label={tr("common.delete")}><button onClick={() => remove(t)} className="p-1.5 rounded-md hover:bg-muted outline-none transition-colors"><Trash2 className="w-[17px] h-[17px] text-destructive" /></button></Tip>
+                    </>) : <span className="text-muted-foreground/50">-</span>}
                   </td>
                 </tr>
               );

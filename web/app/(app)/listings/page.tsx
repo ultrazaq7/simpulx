@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { Listing, ListingPhoto, Campaign, OrgSettings } from "@/lib/types";
 import { Select } from "@/components/Select";
 import SidePanel from "@/components/SidePanel";
-import { useToast, FieldLabel, INPUT_CLASS } from "../_shared";
+import { useToast, FieldLabel, INPUT_CLASS } from "../settings/_shared";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { parseGoogleMapsCoords, isShortMapsLink, looksLikeMapsLink } from "@/lib/geo";
 import { useI18n } from "@/lib/i18n";
