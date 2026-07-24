@@ -38,6 +38,14 @@
 	<string>Simpulx needs photo access to attach images to your chats.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Simpulx uses your location to share your current position with customers.</string>
+	<!-- The location plugin references the "always" API, so Apple requires these
+	     purpose strings to exist even though Simpulx only ever asks for location
+	     while in use (sharing a pin in a chat). Without them the upload is
+	     rejected with "Missing purpose string in Info.plist" (90683). -->
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Simpulx uses your location to share your current position with customers.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Simpulx uses your location to share your current position with customers.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
