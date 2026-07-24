@@ -864,7 +864,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                   <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: m.color + "14" }}>
                     <Icon className="w-4 h-4" style={{ color: m.color }} />
                   </div>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate flex items-center gap-1">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate flex items-center gap-1">
                     {t(m.label)}
                     {m.href && <ChevronRight className="w-3 h-3 opacity-0 group-hover/metric:opacity-100 transition-opacity shrink-0" />}
                   </p>
@@ -874,16 +874,16 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
                   // of how much faster the AI answers than a human agent.
                   <div className="flex flex-col gap-1">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("dashboard.human")}</span>
-                      <span className="font-mono text-[17px] font-semibold text-foreground leading-none tabular-nums truncate">{fmtDuration(val)}</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{t("dashboard.human")}</span>
+                      <span className="text-[18px] font-semibold text-foreground leading-none tabular-nums truncate">{fmtDuration(val)}</span>
                     </div>
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "#7C3AED" }}>AI</span>
-                      <span className="font-mono text-[17px] font-semibold leading-none tabular-nums truncate" style={{ color: "#7C3AED" }}>{fmtDuration(analytics?.response_time?.ai_avg_min ?? 0)}</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#7C3AED" }}>AI</span>
+                      <span className="text-[18px] font-semibold leading-none tabular-nums truncate" style={{ color: "#7C3AED" }}>{fmtDuration(analytics?.response_time?.ai_avg_min ?? 0)}</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="font-mono text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{m.fmt ? m.fmt(val) : val}</p>
+                  <p className="text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{m.fmt ? m.fmt(val) : val}</p>
                 )}
               </>
             );
@@ -1617,9 +1617,9 @@ function MarketingAnalytics() {
           <div key={c.label} className="bg-card rounded-xl border border-border shadow-xs p-5 flex flex-col">
             <div className="flex items-center gap-2 mb-2.5">
               <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: c.color + "14" }}><c.Icon className="w-4 h-4" style={{ color: c.color }} /></div>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{t(c.label)}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{t(c.label)}</p>
             </div>
-            <p className="font-mono text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{c.value}</p>
+            <p className="text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{c.value}</p>
             <div className="mt-1.5 flex items-center gap-1.5 min-h-[16px]">
               {hasPrev && <Delta cur={c.cur} prev={c.prev} higherIsBetter={c.higher} />}
               {hasPrev && <span className="text-[10px] text-muted-foreground truncate">{cmpLabel}</span>}
@@ -1693,11 +1693,11 @@ function MarketingAnalytics() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
                 {["Source", "Cost", "Impressions", "Clicks", "CTR", "CPC", "Leads", "CPL", "CVR"].map((h, i) => (
-                  <th key={h} className={cn("px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 0 ? "text-left" : "text-right")}>{t(h)}</th>
+                  <th key={h} className={cn("px-2.5 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap", i === 0 ? "text-left" : "text-right")}>{t(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -1737,7 +1737,7 @@ function MarketingAnalytics() {
                       </td>
                       <td className="px-2.5 py-2 text-right tabular-nums text-foreground/80 whitespace-nowrap">{s.leads > 0 ? money(cpl) : "-"}</td>
                       <td className="px-2.5 py-2 text-right">
-                        <span className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums", s.cvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{s.cvr.toFixed(2)}%</span>
+                        <span className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[11px] font-bold tabular-nums", s.cvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{s.cvr.toFixed(2)}%</span>
                       </td>
                     </tr>
                   );
@@ -1758,7 +1758,7 @@ function MarketingAnalytics() {
                 <td className="px-2.5 py-2.5 text-right tabular-nums whitespace-nowrap">{srcTotals.leads > 0 ? money(srcTotals.spend / srcTotals.leads) : "-"}</td>
                 <td className="px-2.5 py-2.5 text-right">
                   {(() => { const gcvr = srcTotals.clicks > 0 ? (srcTotals.leads / srcTotals.clicks) * 100 : 0; return (
-                    <span className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums", gcvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{gcvr.toFixed(2)}%</span>
+                    <span className={cn("inline-flex px-1.5 py-0.5 rounded-md text-[11px] font-bold tabular-nums", gcvr > 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>{gcvr.toFixed(2)}%</span>
                   ); })()}
                 </td>
               </tr>
@@ -2101,8 +2101,8 @@ function MarketingAnalytics() {
                   ))}
                 </div>
                 {ga4.rows.length > 0 && (
-                  <table className="w-full text-[12px] mt-3">
-                    <thead><tr className="text-muted-foreground border-b border-border">{["Landing page", "Views", "Sessions", "Eng."].map((h, i) => (<th key={h} className={cn("py-1.5 px-2 text-[10px] font-bold uppercase", i === 0 ? "text-left" : "text-right")}>{t(h)}</th>))}</tr></thead>
+                  <table className="w-full text-[13px] mt-3">
+                    <thead><tr className="text-muted-foreground border-b border-border">{["Landing page", "Views", "Sessions", "Eng."].map((h, i) => (<th key={h} className={cn("py-1.5 px-2 text-[11px] font-bold uppercase", i === 0 ? "text-left" : "text-right")}>{t(h)}</th>))}</tr></thead>
                     <tbody>{ga4.rows.slice(0, 6).map((r, i) => (<tr key={i} className="border-b border-border/60"><td className="py-1.5 px-2 max-w-[220px] truncate text-foreground">{r.landing_page || t("dashboard.notSet")}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{fmtInt(r.views)}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{fmtInt(r.sessions)}</td><td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{(r.engagement_rate * 100).toFixed(0)}%</td></tr>))}</tbody>
                   </table>
                 )}
@@ -2367,9 +2367,9 @@ function CreativeReport() {
                 <div className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ backgroundColor: k.color + "14" }}>
                   <k.Icon className="w-4 h-4" style={{ color: k.color }} />
                 </div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{t(k.label)}</p>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate">{t(k.label)}</p>
               </div>
-              <p className="font-mono text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{k.value}</p>
+              <p className="text-[22px] font-semibold text-foreground leading-none tracking-tight tabular-nums truncate">{k.value}</p>
             </div>
           ))}
         </div>
