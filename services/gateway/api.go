@@ -1489,6 +1489,58 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		  HAVING (u.role = 'agent' OR count(DISTINCT cv.contact_id) > 0)
 		  ORDER BY leads DESC`, campFilterCv, agentScope), args...)
 
+	// Same activity + pipeline metrics as the agent table, but rolled up per
+	// CAMPAIGN. It cannot be derived client-side from the agent rows: one agent
+	// works several campaigns, so their numbers are a single un-splittable total
+	// (the agent table's "branch" column is just a comma-joined label).
+	// Grouping starts from conversations (not users), so leads with no assigned
+	// agent still count towards their campaign.
+	campaignPerf, _ := s.queryMaps(ctx,
+		fmt.Sprintf(`WITH fr AS (
+		   SELECT conversation_id, min(created_at) AS t_c FROM messages
+		    WHERE organization_id=$1 AND direction='inbound' AND sender_type='contact'
+		    GROUP BY conversation_id),
+		 rt AS (
+		   SELECT fr.conversation_id, EXTRACT(EPOCH FROM (min(m.created_at)-fr.t_c))/60.0 AS rt_min
+		     FROM fr JOIN messages m ON m.conversation_id=fr.conversation_id
+		            AND m.direction='outbound' AND m.sender_type='agent'
+		            AND m.created_at>fr.t_c AND m.organization_id=$1
+		    GROUP BY fr.conversation_id, fr.t_c),
+		 ar AS (
+		   SELECT conversation_id, avg(gap) AS avg_gap FROM (
+		     SELECT conversation_id, sender_type,
+		            EXTRACT(EPOCH FROM (created_at - lag(created_at) OVER (PARTITION BY conversation_id ORDER BY created_at)))/60.0 AS gap,
+		            lag(sender_type) OVER (PARTITION BY conversation_id ORDER BY created_at) AS prev_type
+		       FROM messages WHERE organization_id=$1) z
+		    WHERE sender_type='agent' AND prev_type='contact' AND gap >= 0
+		    GROUP BY conversation_id)
+		 SELECT COALESCE(cmp.name, 'Unassigned') AS campaign,
+		        count(DISTINCT cv.contact_id) AS leads,
+		        count(cv.id) AS total_chat,
+		        count(cv.id) FILTER (WHERE cv.last_agent_message_at IS NOT NULL) AS replied,
+		        count(cv.id) FILTER (WHERE cv.interest_level='hot') AS hot,
+		        count(cv.id) FILTER (WHERE st.sort_order = (SELECT max(sort_order) FROM stages WHERE organization_id=$1)) AS won,
+		        COALESCE(avg(rt.rt_min),0)::float8 AS avg_rt_min,
+		        COALESCE(avg(ar.avg_gap),0)::float8 AS avg_resp_min,
+		        COALESCE(avg(CASE WHEN rt.rt_min<=5 THEN 100.0 ELSE 0 END) FILTER (WHERE rt.rt_min IS NOT NULL),0)::float8 AS within_5_pct,
+		        COALESCE(sum(cv.call_attempts), 0)::int AS call_attempts,
+		        COALESCE(sum(cv.total_call_duration), 0)::int AS call_duration_sec,
+		        count(cv.id) FILTER (WHERE st.sort_order > 1 OR st.system_key LIKE 'lost%%') AS updated,
+		        count(cv.id) FILTER (WHERE st.system_key='contacted') AS contacted,
+		        count(cv.id) FILTER (WHERE st.system_key='qualified') AS qualified,
+		        count(cv.id) FILTER (WHERE st.system_key='appointment') AS appointment,
+		        count(cv.id) FILTER (WHERE st.system_key='test_drive') AS negotiation,
+		        count(cv.id) FILTER (WHERE st.system_key='booking') AS purchase,
+		        count(cv.id) FILTER (WHERE st.system_key LIKE 'lost%%') AS lost
+		   FROM conversations cv
+		   LEFT JOIN stages st ON st.id=cv.stage_id
+		   LEFT JOIN campaigns cmp ON cmp.id=cv.campaign_id
+		   LEFT JOIN rt ON rt.conversation_id=cv.id
+		   LEFT JOIN ar ON ar.conversation_id=cv.id
+		  WHERE cv.organization_id=$1%s
+		  GROUP BY 1
+		  ORDER BY leads DESC`, campFilterCv), args...)
+
 	// Per-day: new leads vs how many the CUSTOMER genuinely replied to (an actual
 	// typed inbound, not the auto CTWA/lead-capture opener - genuine=true). This
 	// reads as lead engagement: of the leads that came in, how many wrote back.
@@ -1615,6 +1667,7 @@ func (s *server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		"categories":    categories,
 		"tiers":         first(tiers),
 		"agents":        agents,
+		"campaign_perf": campaignPerf,
 		"daily":         daily,
 		"response_time": first(rt),
 		"revenue":       first(revenue),

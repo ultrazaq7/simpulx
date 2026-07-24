@@ -757,6 +757,7 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
 
   const funnel = analytics?.funnel;
   const agents = analytics?.agents || [];
+  const campaignPerf = analytics?.campaign_perf || [];
   const chartData = buildChartData(analytics, true); // all days; bounded by the date filter when applied
 
   const reportNav = [
@@ -915,13 +916,21 @@ function ManagerDashboard({ initialTab }: { initialTab: ReportTab }) {
           </Card>
         </div>
 
-        {/* Agent performance - activity + pipeline, per agent x branch */}
-        <PerfTables label={t("contacts.agent")} showBranch rows={agents.map((a) => ({
-          name: a.agent, branch: a.branch, leads: a.leads, total_chat: a.total_chat, replied: a.replied,
-          avg_rt_min: a.avg_rt_min, avg_resp_min: a.avg_resp_min, within_5_pct: a.within_5_pct,
-          call_attempts: a.call_attempts, call_duration_sec: a.call_duration_sec,
-          updated: a.updated, contacted: a.contacted, qualified: a.qualified, appointment: a.appointment, negotiation: a.negotiation, purchase: a.purchase, lost: a.lost,
-        }))} />
+        {/* Performance - activity + pipeline, switchable between agent and campaign */}
+        <PerfSection
+          agentRows={agents.map((a) => ({
+            name: a.agent, branch: a.branch, leads: a.leads, total_chat: a.total_chat, replied: a.replied,
+            avg_rt_min: a.avg_rt_min, avg_resp_min: a.avg_resp_min, within_5_pct: a.within_5_pct,
+            call_attempts: a.call_attempts, call_duration_sec: a.call_duration_sec,
+            updated: a.updated, contacted: a.contacted, qualified: a.qualified, appointment: a.appointment, negotiation: a.negotiation, purchase: a.purchase, lost: a.lost,
+          }))}
+          campaignRows={campaignPerf.map((c) => ({
+            name: c.campaign, leads: c.leads, total_chat: c.total_chat, replied: c.replied,
+            avg_rt_min: c.avg_rt_min, avg_resp_min: c.avg_resp_min, within_5_pct: c.within_5_pct,
+            call_attempts: c.call_attempts, call_duration_sec: c.call_duration_sec,
+            updated: c.updated, contacted: c.contacted, qualified: c.qualified, appointment: c.appointment, negotiation: c.negotiation, purchase: c.purchase, lost: c.lost,
+          }))}
+        />
 
         {/* Lost Analysis */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
@@ -1025,11 +1034,11 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
           </table>
         </div>
       </Card>
-      <Card title={`${label} pipeline`}>
+      <Card title={t("dashboard.xPipeline", { x: t(label) })}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-muted/40">
-              <TH2>{label}</TH2>{showBranch && <TH2>{t("dashboard.branch")}</TH2>}
+              <TH2>{t(label)}</TH2>{showBranch && <TH2>{t("dashboard.branch")}</TH2>}
               <TH2 right>{t("dashboard.leadsChats")}</TH2><TH2 right>{t("dashboard.updated")}</TH2><TH2 right>{t("dashboard.pctUpdated")}</TH2><TH2 right>{t("stages.contacted")}</TH2><TH2 right>{t("stages.qualified")}</TH2><TH2 right>{t("stages.appointment")}</TH2><TH2 right>{t("stages.test_drive")}</TH2><TH2 right>{t("stages.booking")}</TH2><TH2 right>{t("dashboard.pctPurchase")}</TH2><TH2 right>{t("dashboard.stageLost")}</TH2>
             </tr></thead>
             <tbody>
@@ -1053,6 +1062,34 @@ function PerfTables({ rows, label, showBranch }: { rows: PerfRow[]; label: strin
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+// Same two tables, switchable between the two dimensions people actually ask
+// for: who handled the leads (agent) and where the leads came from (campaign).
+// One set at a time keeps the page short instead of stacking four tables.
+function PerfSection({ agentRows, campaignRows }: { agentRows: PerfRow[]; campaignRows: PerfRow[] }) {
+  const { t } = useI18n();
+  const [dim, setDim] = useState<"agent" | "campaign">("agent");
+  const tabs = [
+    { key: "agent" as const, label: t("dashboard.byAgent") },
+    { key: "campaign" as const, label: t("dashboard.byCampaign") },
+  ];
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-1 mb-3">
+        {tabs.map(({ key, label }) => (
+          <button key={key} onClick={() => setDim(key)}
+            className={cn("inline-flex items-center px-3.5 h-8 rounded-full text-[13px] whitespace-nowrap outline-none transition-colors",
+              dim === key ? "bg-primary/[0.12] text-primary font-semibold" : "text-muted-foreground hover:bg-muted font-medium")}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {dim === "agent"
+        ? <PerfTables label={t("contacts.agent")} showBranch rows={agentRows} />
+        : <PerfTables label={t("dashboard.campaign")} rows={campaignRows} />}
     </div>
   );
 }

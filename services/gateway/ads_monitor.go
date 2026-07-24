@@ -488,27 +488,46 @@ func (s *server) recordAndNotify(ctx context.Context, c managedCampaign, alerts 
 }
 
 func adsAlertHTML(campaign string, alerts []alert) string {
-	var b strings.Builder
-	b.WriteString(`<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#1a1a1a">`)
-	b.WriteString(`<p style="margin:0 0 12px"><strong>` + html.EscapeString(campaign) + `</strong></p>`)
-	b.WriteString(`<table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:640px">`)
+	// Every colour is stated explicitly (including backgrounds): mail clients that
+	// force dark mode were re-tinting the bare table and its hairline borders into
+	// something that looked broken. Table layout + inline styles because that is
+	// all email clients reliably support.
+	base := strings.TrimRight(config.Get("APP_BASE_URL", "https://app.simpulx.com"), "/")
+	var rows strings.Builder
 	for _, a := range alerts {
-		icon := "&#128993;" // yellow: flagged
+		dot, tint := "#F0A202", "#FFF7E8" // flagged
 		if a.action == "paused_ad" || a.action == "paused_campaign" {
-			icon = "&#128308;" // red: we acted
+			dot, tint = "#DC2626", "#FEF2F2" // acted on
 		}
-		b.WriteString(`<tr style="border-bottom:1px solid #eee"><td style="width:28px">` + icon + `</td><td>`)
-		b.WriteString(html.EscapeString(a.detail))
-		b.WriteString(`</td></tr>`)
+		rows.WriteString(`<tr><td style="padding:0 0 10px"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:` + tint + `;border-radius:10px"><tr>` +
+			`<td width="4" style="background:` + dot + `;border-radius:10px 0 0 10px">&nbsp;</td>` +
+			`<td style="padding:12px 14px;font-size:14px;line-height:1.5;color:#1F2937">` +
+			html.EscapeString(a.detail) +
+			`</td></tr></table></td></tr>`)
 	}
-	b.WriteString(`</table>`)
+	note := ""
 	if !autopauseEnabled() {
-		b.WriteString(`<p style="margin:14px 0 0;color:#666;font-size:12.5px">` +
-			`Auto-pause is OFF (ADS_AUTOPAUSE), so nothing was changed in Meta. ` +
-			`The actions above are what would have been taken.</p>`)
+		note = `<p style="margin:18px 0 0;padding:12px 14px;background:#F3F4F6;border-radius:10px;color:#4B5563;font-size:13px;line-height:1.5">` +
+			`Auto-pause is off, so nothing was changed in Meta. The items above are what would have been paused.</p>`
 	}
-	b.WriteString(`</div>`)
-	return b.String()
+	return `<div style="margin:0;padding:24px 12px;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:14px">
+    <tr><td style="padding:26px 26px 0">
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#0E5B54">Simpulx Ads</p>
+      <h1 style="margin:0 0 2px;font-size:19px;line-height:1.3;color:#111827">` + html.EscapeString(campaign) + `</h1>
+      <p style="margin:0 0 18px;font-size:13.5px;color:#6B7280">` + fmt.Sprintf("%d item butuh perhatian", len(alerts)) + `</p>
+    </td></tr>
+    <tr><td style="padding:0 26px">
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">` + rows.String() + `</table>` + note + `
+    </td></tr>
+    <tr><td style="padding:20px 26px 26px">
+      <a href="` + base + `/settings/campaigns" style="display:inline-block;background:#0E5B54;color:#FFFFFF;text-decoration:none;padding:12px 22px;border-radius:9px;font-weight:600;font-size:14px">Buka campaign</a>
+    </td></tr>
+    <tr><td style="padding:0 26px 24px;border-top:1px solid #E5E7EB">
+      <p style="margin:16px 0 0;font-size:12px;color:#9CA3AF">Simpulx &middot; Inbox WhatsApp + AI untuk tim sales</p>
+    </td></tr>
+  </table>
+</div>`
 }
 
 func rupiah(v float64) string {

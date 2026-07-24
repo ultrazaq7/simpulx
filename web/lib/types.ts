@@ -87,6 +87,10 @@ export interface Analytics {
   categories: { category: string; count: number }[];
   tiers: { cold: number; lukewarm: number; warm: number; engaged: number; hot: number };
   agents: { agent: string; branch: string; leads: number; total_chat: number; replied: number; hot: number; won: number; avg_rt_min: number; avg_resp_min: number; within_5_pct: number; call_attempts: number; call_duration_sec: number; updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number; lost: number }[];
+  // Same metrics as `agents`, rolled up per campaign instead of per agent. Comes
+  // from the server because one agent spans several campaigns, so the agent rows
+  // cannot be re-split client-side.
+  campaign_perf?: { campaign: string; leads: number; total_chat: number; replied: number; hot: number; won: number; avg_rt_min: number; avg_resp_min: number; within_5_pct: number; call_attempts: number; call_duration_sec: number; updated: number; contacted: number; qualified: number; appointment: number; negotiation: number; purchase: number; lost: number }[];
   daily: { day: string; leads: number; replied: number }[];
   response_time: {
     median_min: number; avg_min: number; ai_avg_min: number; within_5_min_pct: number; within_1_hr_pct: number; leads_with_rt: number;
