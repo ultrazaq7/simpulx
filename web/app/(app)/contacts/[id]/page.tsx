@@ -336,7 +336,7 @@ export default function ContactDetailsPage() {
                 </div>
               )
             ) : tab === "notes" ? (
-              <div className="max-w-[760px] space-y-3">
+              <div className="space-y-3">
                 {c.conversation_id ? (
                   <div className="rounded-lg border border-border bg-card p-3">
                     <textarea
@@ -392,7 +392,7 @@ export default function ContactDetailsPage() {
               )
             ) : (
               activity.length === 0 ? <Empty icon={Clock} text={t("contacts.noChangesYet")} /> : (
-                <div className="space-y-2.5 max-w-[760px]">
+                <div className="space-y-2.5">
                   {activity.map((ev, i) => (
                     <div key={i} className="flex gap-3">
                       <div className="flex flex-col items-center pt-0.5">

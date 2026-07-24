@@ -207,7 +207,20 @@ export function CampaignWizard({ campaignId, users, channels, onClose, onDone, o
             <FieldLabel hint={t("settings.managersSpvWhoCanSee")}>{t("settings.supervisorsViewOnlyNoLeads")}</FieldLabel>
             <AgentMultiSelect options={agentOptions} selected={supervisors} onChange={setSupervisors} />
           </div>
-          <WizardField label={t("settings.ctwaAdSourceIdsUsed")} value={adSources} onChange={setAdSources} placeholder="ad_honda_brio_2026" hint={t("settings.perBranchAdSourcesAre")} />
+          {/* CTWA ad source ids are managed by the system: launching an ad
+              registers its id automatically. Editing them by hand here silently
+              broke lead attribution when a digit was off, so they're shown
+              read-only. The server only ever adds to this list. */}
+          {adSources.trim() !== "" && (
+            <div>
+              <FieldLabel hint={t("settings.ctwaAutoManagedHint")}>{t("settings.ctwaAdSourceIdsUsed")}</FieldLabel>
+              <div className="flex flex-wrap gap-1.5">
+                {adSources.split(",").map((s) => s.trim()).filter(Boolean).map((s) => (
+                  <span key={s} className="inline-flex px-2 py-1 rounded-md bg-muted text-[12px] font-medium tabular-nums text-muted-foreground">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
           <WizardField label={t("settings.keywordsInFirstMessageComma")} value={keywords} onChange={setKeywords} placeholder={t("settings.brioHonda")} />
           <div>
             <FieldLabel>{t("settings.serviceArea")}</FieldLabel>

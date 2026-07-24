@@ -2388,6 +2388,7 @@
   "settings.capiToken": "Token akses CAPI",
   "settings.capiTokenHelp": "Dari Events Manager. Disimpan terpisah dari token ads supaya mengisi salah satu tidak menimpa yang lain.",
   "settings.creditsUsed": "Kredit terpakai",
+  "settings.ctwaAutoManagedHint": "Terdaftar otomatis saat iklan di-launch. Tambah ad id eksternal dari tab Ads.",
   "settings.expires": "Berakhir",
   "settings.listingViews": "Views",
   "settings.noAdAccount": "Tanpa ad account",

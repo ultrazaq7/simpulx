@@ -346,7 +346,15 @@ func (s *server) handleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		   dealer_name = COALESCE(NULLIF($4,''), dealer_name),
 		   status = COALESCE(NULLIF($5,''), status),
 		   routing_strategy = COALESCE(NULLIF($6,''), routing_strategy),
-		   ad_source_ids = COALESCE($7, ad_source_ids),
+		   -- CTWA source ids are only ever ADDED to, never replaced by this form.
+		   -- Launching an ad auto-registers its id here; a campaign edit used to
+		   -- overwrite the whole array with whatever was in the text box, silently
+		   -- dropping registered ids so those leads stopped matching the campaign.
+		   ad_source_ids = (
+		     SELECT array_agg(DISTINCT x) FROM unnest(
+		       COALESCE(ad_source_ids, array[]::text[]) || COALESCE($7, array[]::text[])
+		     ) AS x WHERE x <> ''
+		   ),
 		   keywords = COALESCE($8, keywords),
 		   channel_id = COALESCE(NULLIF($9,'')::uuid, channel_id),
 		   calling_enabled = COALESCE($10, calling_enabled),

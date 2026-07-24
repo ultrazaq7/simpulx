@@ -2388,6 +2388,7 @@
   "settings.capiToken": "CAPI access token",
   "settings.capiTokenHelp": "From Events Manager. Kept separate from the ads token so setting one never overwrites the other.",
   "settings.creditsUsed": "Credits used",
+  "settings.ctwaAutoManagedHint": "Registered automatically when an ad is launched. Add external ad ids from the Ads tab.",
   "settings.expires": "Expires",
   "settings.listingViews": "Views",
   "settings.noAdAccount": "No ad account",
