@@ -187,23 +187,19 @@ async def _send_listing_card(broker, pool, org_id: str, conv_id: str, unit: dict
             spec.append(f"{label} {int(v)}m2")
     if spec:
         bits.append(", ".join(spec))
-    # The long public URL used to sit in the image caption, which forced the message
-    # bubble WIDER than the photo (WhatsApp sizes the bubble to its widest line), so
-    # the image never filled it -- an ugly empty band beside the picture. The link now
-    # goes in a SEPARATE text after the image: the photo bubble hugs the picture, and
-    # the link (which the customer taps) stands on its own.
-    caption = "\n".join(bits)
+    # ONE message, link inside the caption. Splitting the link into its own text
+    # kept the photo bubble narrow, but it cost a second WhatsApp message per
+    # listing (double the send volume, and it reads as the bot spamming) and the
+    # link arrived detached from the unit it belongs to.
     link = f"{_app_base_url()}/listing/{org_slug}/{slug}" if (org_slug and slug) else ""
+    if link:
+        bits.append(f"Foto & detail lengkap:\n{link}")
+    caption = "\n".join(bits)
 
     cover = _wa_safe_image(cover)
     payload = {"conversation_id": conv_id, "sender_type": "bot", "body": caption}
     payload.update({"type": "image", "media_url": cover} if cover else {"type": "text"})
     await broker.publish(SUBJECT_OUTBOUND, org_id, payload)
-    if link:
-        await broker.publish(SUBJECT_OUTBOUND, org_id, {
-            "conversation_id": conv_id, "sender_type": "bot", "type": "text",
-            "body": f"Foto & detail lengkap:\n{link}",
-        })
 
 
 async def _send_listing_list(broker, org_id: str, conv_id: str, units: list[dict]) -> None:
