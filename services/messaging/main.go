@@ -153,6 +153,13 @@ func (a *app) onReceived(env events.Envelope) error {
 		branchID, campaignID, matched = dID, cID, true
 	} else if cID, ok := a.st.resolveCampaignByReferral(ctx, env.OrgID, e.Referral); ok {
 		campaignID, matched = cID, true
+	} else if e.Referral != "" {
+		// The click came from an ad but its id isn't registered on any campaign or
+		// branch, so the lead lands unassigned. Say WHICH id arrived: without this
+		// the source_id is discarded silently and there is no way to tell a missing
+		// referral apart from one that simply doesn't match.
+		a.log.Warn("CTWA referral did not match any campaign - lead will be unassigned",
+			"org", env.OrgID, "ad_source_id", e.Referral, "ctwa_clid", e.ReferralCtwaClid)
 	}
 	// Property e-catalog: a lead arriving from the public microsite carries that
 	// unit's own link in the prefilled message. Resolving it is more precise than a
@@ -452,7 +459,10 @@ func (a *app) onMediaResolved(env events.Envelope) error {
 // contact cards, a pinned location, and the raw webhook for unsupported types.
 func buildMessageMeta(e events.MessageReceived) string {
 	m := map[string]any{}
-	if e.ReferralImageURL != "" || e.ReferralHeadline != "" || e.ReferralBody != "" || e.ReferralURL != "" {
+	// Keep the referral whenever an ad id arrived, not only when Meta also sent
+	// creative fields: a text-only ad used to leave no trace at all, so an
+	// unmatched click looked identical to an organic message.
+	if e.Referral != "" || e.ReferralImageURL != "" || e.ReferralHeadline != "" || e.ReferralBody != "" || e.ReferralURL != "" {
 		m["referral"] = map[string]any{
 			"image_url":  e.ReferralImageURL,
 			"headline":   e.ReferralHeadline,
