@@ -303,15 +303,14 @@ class _ManagerSection extends ConsumerWidget {
           ),
           data: (a) => Column(
             children: [
-              // A manager opens this to see the team first: who is carrying the
-              // pipeline, then how fast it is being answered, then the pipeline
-              // itself. Interest and stages keep the agent view's order.
+              // Response time first (the same card the agent view opens with),
+              // then the team, then the pipeline itself.
+              _ResponseCard(a),
+              const SizedBox(height: 12),
               if (a.agents.isNotEmpty) ...[
                 _LeaderboardCard(agents: a.agents, onDrill: onDrill),
                 const SizedBox(height: 12),
               ],
-              _ResponseCard(a),
-              const SizedBox(height: 12),
               _InterestSplitCard(a, onDrill: onDrill),
               const SizedBox(height: 12),
               if (a.stages.isNotEmpty) ...[
