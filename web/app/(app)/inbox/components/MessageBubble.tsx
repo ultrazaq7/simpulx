@@ -287,7 +287,7 @@ function CustomAudioPlayer({ url, out }: { url: string; out: boolean }) {
   const inactiveColor = out ? "bg-white/40" : "bg-black/20";
 
   return (
-    <div className="flex items-center gap-3 w-[260px] pl-1 pr-3 py-1.5">
+    <div className="flex items-center gap-3 w-full min-w-[min(260px,100%)] pl-1 pr-3 py-1.5">
       <audio ref={audioRef} src={url} preload="metadata" />
       
       <div className="relative shrink-0">
@@ -489,7 +489,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
     <div className={cn("group flex items-start gap-1", out ? "justify-end" : "justify-start")}>
 
       {out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
-      <div className={cn(hasReferral || firstUrl ? "max-w-[340px]" : "max-w-[66%]", "flex flex-col", out ? "items-end" : "items-start")}>
+      <div className={cn(hasReferral || firstUrl ? "max-w-[min(340px,85%)]" : "max-w-[66%]", "flex flex-col", out ? "items-end" : "items-start")}>
         {/* Sender label: only on the first of a group, and only for outbound (1:1
             inbound is always the contact, so the name there is just noise). */}
         {!grouped && (out || bot || broadcast) && (
@@ -604,7 +604,15 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
             >
               <img
                 src={url}
-                className="max-h-[280px] min-w-[180px] max-w-[320px] object-cover block"
+                className={cn(
+                  "max-h-[280px] object-cover block",
+                  // A captioned image (listing card) must fill the bubble, whose
+                  // width the caption drives - otherwise a long line like the
+                  // listing URL widens the bubble past the fixed 320px cap and
+                  // leaves a grey band down the side of the photo. A plain image
+                  // with no caption keeps its intrinsic size instead.
+                  m.body ? "w-full" : "min-w-[min(180px,100%)] max-w-[320px]",
+                )}
                 loading="lazy"
               />
               {/* WhatsApp-style gradient overlay at bottom with time */}
@@ -627,7 +635,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
               <video
                 src={url}
                 preload="metadata"
-                className="max-h-[280px] min-w-[180px] max-w-[320px] object-cover block"
+                className="max-h-[280px] min-w-[min(180px,100%)] max-w-[320px] object-cover block"
                 muted
               />
               {/* Play button overlay */}
