@@ -229,6 +229,18 @@ func (m waMessage) errorSummary() string {
 	}
 }
 
+// replyToWamid is the wamid this message quotes (WhatsApp `context.id`), set when
+// the customer replied to a specific message. Empty otherwise.
+func (m waMessage) replyToWamid() string {
+	if m.Context == nil {
+		return ""
+	}
+	if m.Context.ID != "" {
+		return m.Context.ID
+	}
+	return m.Context.MessageID
+}
+
 // referralSourceID returns the CTWA ad source_id when present.
 func (m waMessage) referralSourceID() string {
 	if m.Referral != nil {

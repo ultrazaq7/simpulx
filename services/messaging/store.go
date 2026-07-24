@@ -904,6 +904,30 @@ func (s *store) sendTarget(ctx context.Context, convID string) (sendTarget, erro
 // updateMessageStatus updates the status of an outbound message matched by
 // externalID and returns the internal message id + conversation id so the caller
 // can broadcast a precise tick update (sent→delivered→read) to clients.
+// replySnapshotByExternalID resolves the quoted message (by wamid, within the
+// conversation) into a preview snapshot for metadata.reply_to. Returns nil when
+// the quoted message isn't found (e.g. it predates capture) so a reply still
+// sends, just without the quote.
+func (s *store) replySnapshotByExternalID(ctx context.Context, convID, externalID string) *events.ReplyToSnapshot {
+	if externalID == "" {
+		return nil
+	}
+	var id, senderType, msgType, body string
+	if err := s.pool.QueryRow(ctx,
+		`SELECT id::text, sender_type, type, COALESCE(body,'') FROM messages
+		  WHERE conversation_id = $1 AND external_id = $2 LIMIT 1`, convID, externalID).
+		Scan(&id, &senderType, &msgType, &body); err != nil {
+		return nil
+	}
+	return &events.ReplyToSnapshot{
+		MessageID:  id,
+		ExternalID: externalID,
+		Preview:    mediaPreview(msgType, body),
+		SenderType: senderType,
+		Type:       msgType,
+	}
+}
+
 func (s *store) updateMessageStatus(ctx context.Context, externalID, status string) (msgID, convID string, err error) {
 	err = s.pool.QueryRow(ctx,
 		`UPDATE messages SET status = $2 WHERE external_id = $1 RETURNING id::text, conversation_id::text`,

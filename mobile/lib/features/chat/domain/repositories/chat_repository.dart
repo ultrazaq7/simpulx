@@ -34,6 +34,7 @@ abstract class ChatRepository {
     required String body,
     String type,
     String? mediaUrl,
+    String? replyToMessageId,
   });
 
   // ── Lookups ────────────────────────────────────────────

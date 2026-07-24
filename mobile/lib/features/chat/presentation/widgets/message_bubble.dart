@@ -38,11 +38,14 @@ class MessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     this.allMessages = const [],
+    this.onReply,
   });
 
   final Message message;
   /// All messages in the conversation — used to build the swipeable media gallery.
   final List<Message> allMessages;
+  /// WhatsApp-style quote-reply: set the composer's reply target to this message.
+  final void Function(Message)? onReply;
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +119,7 @@ class MessageBubble extends StatelessWidget {
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
-        onLongPress: message.body.isEmpty
+        onLongPress: (message.body.isEmpty && onReply == null)
             ? null
             : () => _showMessageActions(context),
         child: Container(
@@ -154,6 +157,8 @@ class MessageBubble extends StatelessWidget {
                   ],
                 ),
               ),
+            if (message.replyTo != null)
+              _QuotedReply(reply: message.replyTo!, fg: fg, accent: simpulerColor),
             if (message.hasMedia)
               _MediaContent(
                 message: message,
@@ -274,15 +279,25 @@ class MessageBubble extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.copy_rounded),
-              title: Text('Copy'.tr(context)),
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: message.body));
-                Navigator.of(sheetContext).pop();
-                AppSnackbar.show(context, 'Copied'.tr(context));
-              },
-            ),
+            if (onReply != null)
+              ListTile(
+                leading: const Icon(Icons.reply_rounded),
+                title: Text('Reply'.tr(context)),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  onReply!(message);
+                },
+              ),
+            if (message.body.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.copy_rounded),
+                title: Text('Copy'.tr(context)),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: message.body));
+                  Navigator.of(sheetContext).pop();
+                  AppSnackbar.show(context, 'Copied'.tr(context));
+                },
+              ),
           ],
         ),
       ),
@@ -334,6 +349,50 @@ class MessageBubble extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The quoted message shown at the top of a reply bubble (WhatsApp-style): the
+/// sender label + a short preview, with an accent rail.
+class _QuotedReply extends StatelessWidget {
+  const _QuotedReply({required this.reply, required this.fg, required this.accent});
+  final Map<String, dynamic> reply;
+  final Color fg;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final senderType = (reply['sender_type'] ?? '') as String;
+    final label = senderType == 'bot'
+        ? 'Simpuler'.tr(context)
+        : senderType == 'contact'
+            ? 'Contact'.tr(context)
+            : 'You'.tr(context);
+    final preview = (reply['preview'] ?? '') as String;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.fromLTRB(8, 5, 8, 5),
+      decoration: BoxDecoration(
+        color: fg.withValues(alpha: 0.06),
+        border: Border(left: BorderSide(color: accent, width: 3)),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(6),
+          bottomRight: Radius.circular(6),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accent)),
+          const SizedBox(height: 1),
+          Text(preview,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12.5, color: fg.withValues(alpha: 0.7))),
         ],
       ),
     );

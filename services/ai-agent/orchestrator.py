@@ -1075,6 +1075,25 @@ async def _generate_and_send_reply(broker, pool, conn, org_id: str, conv_id: str
         await _publish_activity(broker, org_id, conv_id, "replied", log)  # clear the indicator
         return
 
+    # Take over DURING generation: the check at the top of this function ran before
+    # the LLM call, so an agent who pressed Take over (or typed a reply) while the
+    # model was drafting would still see the bot reply land. Re-read the takeover
+    # flag now, after generation and before sending, and drop the in-flight reply so
+    # Take over genuinely cancels it — the whole point of the button. Both web and
+    # mobile write the same bot_takeover event, so this fixes both.
+    async with _conn_or(pool, conn) as conn:
+        took_over = await _human_took_over(conn, conv_id)
+        human_now = await conn.fetchval(
+            """SELECT count(*) FROM messages
+                WHERE conversation_id = $1 AND direction = 'outbound'
+                  AND sender_type NOT IN ('bot', 'system')""",
+            conv_id,
+        )
+    if took_over or (human_now and human_now > 0):
+        log.info("nurture stand down (agent took over during generation)", extra={"conv": conv_id})
+        await _publish_activity(broker, org_id, conv_id, "replied", log)  # clear the typing indicator
+        return
+
     meta = row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"] or "{}")
     first_turn = not meta.get("ai_nurture_started")
 

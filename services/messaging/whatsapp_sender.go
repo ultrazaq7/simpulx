@@ -32,13 +32,18 @@ func newSender(mock bool, graphBase string) *sender {
 }
 
 // sendText mengirim pesan teks. Mengembalikan external id (wamid).
-func (s *sender) sendText(ctx context.Context, t sendTarget, body string) (string, error) {
-	return s.post(ctx, t, map[string]any{
+func (s *sender) sendText(ctx context.Context, t sendTarget, body, replyToWamid string) (string, error) {
+	payload := map[string]any{
 		"messaging_product": "whatsapp",
 		"to":                t.ContactPhone,
 		"type":              "text",
 		"text":              map[string]string{"body": body},
-	})
+	}
+	// Quote-reply: WhatsApp shows the message threaded under the one it replies to.
+	if replyToWamid != "" {
+		payload["context"] = map[string]string{"message_id": replyToWamid}
+	}
+	return s.post(ctx, t, payload)
 }
 
 // sendTemplate mengirim pesan template WhatsApp (name + language). Dipakai node

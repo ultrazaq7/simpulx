@@ -227,6 +227,12 @@ func (a *app) onReceived(env events.Envelope) error {
 	// Simpan payload webhook mentah untuk pesan "unsupported" agar bisa diinspeksi
 	// dari DB (messages.metadata.raw_webhook) -- konten asli tak pernah hilang lagi.
 	meta := buildMessageMeta(e)
+	// Customer replied to a specific message: resolve the quoted wamid to a preview
+	// snapshot so the inbox renders the quote WhatsApp-style (which message they
+	// answered). Best-effort: an unresolved quote just omits the preview.
+	if e.Message.ReplyToExternalID != "" {
+		meta = mergeReplyTo(meta, a.st.replySnapshotByExternalID(ctx, conv.ID, e.Message.ReplyToExternalID))
+	}
 	msgID, err := a.st.insertInbound(ctx, env.OrgID, conv.ID, e.Message.Type, body, e.Message.MediaURL, e.Message.ExternalID, genuine, mediaPreview(e.Message.Type, body), meta)
 	if err == nil {
 		a.kickOutbox() // deliver realtime immediately, don't wait for the poll tick
@@ -318,7 +324,9 @@ func (a *app) onOutbound(env events.Envelope) error {
 	case e.Type == "location":
 		externalID, err = a.snd.sendLocation(ctx, target, e.Latitude, e.Longitude, e.LocationName, e.LocationAddress)
 	default:
-		externalID, err = a.snd.sendText(ctx, target, e.Body)
+		// e.ReplyToExternalID (when set) becomes WhatsApp `context.message_id` so the
+		// customer sees the reply quoted, matching the in-app quote we store below.
+		externalID, err = a.snd.sendText(ctx, target, e.Body, e.ReplyToExternalID)
 	}
 	// A shared location is stored in the message metadata so the inbox renders the
 	// same map card it shows for an inbound pin (see buildMessageMeta / _LocationCard).
@@ -334,6 +342,11 @@ func (a *app) onOutbound(env events.Envelope) error {
 		}); mErr == nil {
 			metaJSON = string(b)
 		}
+	}
+	// Agent replied to a specific message: store the same quote snapshot the inbound
+	// path stores so our bubble renders the WhatsApp-style quote.
+	if e.ReplyTo != nil {
+		metaJSON = mergeReplyTo(metaJSON, e.ReplyTo)
 	}
 	status := "sent"
 	if err != nil {
@@ -489,6 +502,24 @@ func buildMessageMeta(e events.MessageReceived) string {
 	b, err := json.Marshal(m)
 	if err != nil {
 		return ""
+	}
+	return string(b)
+}
+
+// mergeReplyTo folds the quoted-message snapshot into an existing metadata JSON
+// string under "reply_to". metaJSON may be "" (the message has no other metadata).
+func mergeReplyTo(metaJSON string, snap *events.ReplyToSnapshot) string {
+	if snap == nil {
+		return metaJSON
+	}
+	m := map[string]any{}
+	if metaJSON != "" {
+		_ = json.Unmarshal([]byte(metaJSON), &m)
+	}
+	m["reply_to"] = snap
+	b, err := json.Marshal(m)
+	if err != nil {
+		return metaJSON
 	}
 	return string(b)
 }

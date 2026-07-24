@@ -252,8 +252,8 @@ export const api = {
   linkPreview: (url: string) =>
     req<{ url: string; title?: string; description?: string; image?: string; site_name?: string }>(
       `/api/link-preview?url=${encodeURIComponent(url)}`),
-  sendMessage: (id: string, body: string) =>
-    req(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ body }) }),
+  sendMessage: (id: string, body: string, replyToMessageId?: string) =>
+    req(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify(replyToMessageId ? { body, reply_to_message_id: replyToMessageId } : { body }) }),
   sendMedia: (id: string, type: string, mediaUrl: string, caption: string) =>
     req(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ type, media_url: mediaUrl, body: caption }) }),
   // Upload via XHR so we can surface progress + a timeout + the server's error text
