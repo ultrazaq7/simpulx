@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// redeploy: re-trigger CI after the chat-reply web image failed to build/push.
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone", // lean production image (server.js + minimal deps)
