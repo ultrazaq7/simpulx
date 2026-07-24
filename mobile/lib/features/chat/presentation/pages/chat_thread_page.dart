@@ -58,6 +58,8 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
   bool _showJump = false;
   double _lastBottomInset = 0;
   bool _aiThinking = false;
+  // The message the agent is replying to (WhatsApp-style quote), or null.
+  Message? _replyTarget;
   StreamSubscription<RealtimeEvent>? _aiSub;
   Timer? _aiTimer;
 
@@ -201,6 +203,34 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
         AppSnackbar.show(context, 'Could not open the phone'.tr(context), isError: true);
       }
     }
+  }
+
+  /// Build the quote snapshot stored on the optimistic bubble so the reply shows
+  /// its quote immediately (the persisted message carries the same shape).
+  Map<String, dynamic> _replySnapshot(Message m) {
+    const senderWire = {
+      MessageSenderType.contact: 'contact',
+      MessageSenderType.agent: 'agent',
+      MessageSenderType.bot: 'bot',
+      MessageSenderType.system: 'system',
+    };
+    final preview = m.body.trim().isNotEmpty
+        ? m.body.trim()
+        : switch (m.type) {
+            MessageType.image => '📷 Photo',
+            MessageType.audio => '🎤 Audio',
+            MessageType.video => '🎥 Video',
+            MessageType.document => '📄 Document',
+            MessageType.location => '📍 Location',
+            MessageType.sticker => '💟 Sticker',
+            _ => '',
+          };
+    return {
+      'message_id': m.id,
+      'preview': preview,
+      'sender_type': senderWire[m.senderType] ?? 'contact',
+      'type': m.type.name,
+    };
   }
 
   Future<void> _attach() async {
@@ -442,6 +472,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
                       scroll: _scroll,
                       messages: s.messages,
                       loadingMore: s.loadingMore,
+                      onReply: (m) => setState(() => _replyTarget = m),
                     ),
                     Positioned(
                       right: 12,
@@ -556,9 +587,17 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
             ),
           MessageComposer(
             conversationId: widget.conversationId,
-            onSend: (text) => ref
-                .read(chatThreadControllerProvider(widget.conversationId))
-                .send(text),
+            replyTarget: _replyTarget,
+            onCancelReply: () => setState(() => _replyTarget = null),
+            onSend: (text) {
+              final target = _replyTarget;
+              ref.read(chatThreadControllerProvider(widget.conversationId)).send(
+                    text,
+                    replyToMessageId: target?.id,
+                    replyToMeta: target == null ? null : _replySnapshot(target),
+                  );
+              if (target != null) setState(() => _replyTarget = null);
+            },
             onAttach: _attach,
             onCamera: _openCustomCamera,
             onSendVoice: (path) => ref
@@ -576,11 +615,13 @@ class _MessageList extends StatelessWidget {
     required this.scroll,
     required this.messages,
     required this.loadingMore,
+    required this.onReply,
   });
 
   final ScrollController scroll;
   final List<Message> messages;
   final bool loadingMore;
+  final void Function(Message) onReply;
 
   @override
   Widget build(BuildContext context) {
@@ -608,7 +649,7 @@ class _MessageList extends StatelessWidget {
         return Column(
           children: [
             if (showDay) _DaySeparator(date: message.createdAt),
-            MessageBubble(message: message, allMessages: messages),
+            MessageBubble(message: message, allMessages: messages, onReply: onReply),
           ],
         );
       },

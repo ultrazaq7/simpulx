@@ -125,6 +125,7 @@ class ChatRemoteDataSource {
     required String body,
     String type = 'text',
     String? mediaUrl,
+    String? replyToMessageId,
   }) async {
     try {
       await _dio.post(
@@ -133,6 +134,8 @@ class ChatRemoteDataSource {
           'body': body,
           'type': type,
           if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
+          if (replyToMessageId != null && replyToMessageId.isNotEmpty)
+            'reply_to_message_id': replyToMessageId,
         },
       );
     } on DioException catch (e) {

@@ -79,6 +79,21 @@ type InboundMessage struct {
 	// (WhatsApp-style) instead of a bare placeholder.
 	Contacts []InboundContact `json:"contacts,omitempty"`
 	Location *InboundLocation `json:"location,omitempty"`
+	// ReplyToExternalID is the wamid of the message this one quotes (WhatsApp
+	// `context.id`), set when the customer replies to a specific message. Messaging
+	// resolves it to a snapshot stored in metadata.reply_to so the inbox renders the
+	// quoted preview WhatsApp-style. Empty for normal messages.
+	ReplyToExternalID string `json:"reply_to_external_id,omitempty"`
+}
+
+// ReplyToSnapshot is the quoted-message preview stored on a message's metadata
+// (metadata.reply_to) so a reply bubble renders the quote without a join.
+type ReplyToSnapshot struct {
+	MessageID  string `json:"message_id,omitempty"`
+	ExternalID string `json:"external_id,omitempty"`
+	Preview    string `json:"preview"`
+	SenderType string `json:"sender_type"`
+	Type       string `json:"type"`
 }
 
 // InboundContact is one shared contact card (type == "contacts").
@@ -194,6 +209,12 @@ type MessageOutbound struct {
 	Longitude       float64 `json:"longitude,omitempty"`
 	LocationName    string  `json:"location_name,omitempty"`
 	LocationAddress string  `json:"location_address,omitempty"`
+	// Quote-reply: when the agent replies to a specific message, the gateway
+	// resolves it. ReplyToExternalID is the quoted wamid sent to WhatsApp as
+	// `context.message_id` (so the customer sees the quote too); ReplyTo is the
+	// snapshot messaging stores in metadata.reply_to for our own inbox rendering.
+	ReplyToExternalID string           `json:"reply_to_external_id,omitempty"`
+	ReplyTo           *ReplyToSnapshot `json:"reply_to,omitempty"`
 }
 
 // ── Template (WhatsApp HSM) outbound payload ────────────────

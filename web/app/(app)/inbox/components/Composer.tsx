@@ -41,6 +41,8 @@ interface ComposerProps {
   agentName?: string | null;                     // assigned agent (for "Manual · {name}")
   onToggleBot?: (active: boolean) => void;       // AI takeover (false) / hand back to Simpuler (true)
   canHandBack?: boolean;                         // false once an agent replied (AI can't come back)
+  replyTarget?: import("@/lib/types").Message | null; // WhatsApp-style quote-reply target
+  onCancelReply?: () => void;                    // clear the reply target
 }
 
 export default function Composer({
@@ -48,7 +50,7 @@ export default function Composer({
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, notify, onSendVoice, windowExpired, phone, conversationId, callingEnabled, onRequestCall,
   aiSummary, uploadProgress, onAddNote, smartSummaryEnabled = true, aiThinking,
-  isBotActive, agentName, onToggleBot, canHandBack = true,
+  isBotActive, agentName, onToggleBot, canHandBack = true, replyTarget, onCancelReply,
 }: ComposerProps) {
   const { t } = useI18n();
   const [showQR, setShowQR] = useState(false);
@@ -325,6 +327,24 @@ export default function Composer({
             <span className="w-1 h-1 rounded-full bg-ai animate-bounce [animation-delay:-0.1s]" />
             <span className="w-1 h-1 rounded-full bg-ai animate-bounce" />
           </span>
+        </div>
+      )}
+      {/* WhatsApp-style reply chip: the message being replied to, with a cancel. */}
+      {replyTarget && !note && (
+        <div className="mb-1.5 flex items-stretch rounded-lg border border-border bg-muted/50 overflow-hidden">
+          <div className="w-[3px] bg-primary shrink-0" />
+          <div className="flex-1 min-w-0 px-2.5 py-1.5">
+            <p className="text-[11px] font-bold text-primary-text leading-none mb-0.5">
+              {replyTarget.sender_type === "bot" ? "Simpuler" : replyTarget.direction === "inbound" ? t("broadcasts.contact") : t("dashboard.you")}
+            </p>
+            <p className="text-[12px] text-muted-foreground truncate">
+              {replyTarget.body || t(`components.${replyTarget.type}`)}
+            </p>
+          </div>
+          <button onClick={onCancelReply} aria-label={t("common.cancel")}
+            className="px-2 text-muted-foreground hover:text-foreground shrink-0 outline-none">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
       <div

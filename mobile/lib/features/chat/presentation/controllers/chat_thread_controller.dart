@@ -124,7 +124,8 @@ class ChatThreadController extends ChangeNotifier {
     );
   }
 
-  Future<void> send(String text) async {
+  Future<void> send(String text,
+      {String? replyToMessageId, Map<String, dynamic>? replyToMeta}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     final tempId = 'local-${DateTime.now().microsecondsSinceEpoch}';
@@ -137,10 +138,13 @@ class ChatThreadController extends ChangeNotifier {
       status: MessageStatus.sending,
       createdAt: DateTime.now(),
       pending: true,
+      // Show the quote immediately; the persisted message carries the same snapshot.
+      metadata: replyToMeta == null ? null : {'reply_to': replyToMeta},
     );
     _emit(_withMessages([..._state.messages, optimistic]));
 
-    final result = await _repo.sendMessage(conversationId, body: trimmed);
+    final result = await _repo.sendMessage(conversationId,
+        body: trimmed, replyToMessageId: replyToMessageId);
     result.fold(
       (_) => _replace(tempId, (m) => m.copyWith(status: MessageStatus.failed)),
       // Stays "queued" until the realtime `message.persisted` reconciles it.

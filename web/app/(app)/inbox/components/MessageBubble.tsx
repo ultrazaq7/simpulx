@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Sparkles, Check, CheckCheck, Clock, AlertCircle, Play, Pause, Mic, User,
   FileText, FileSpreadsheet, FileImage, FileArchive, FileCode,
-  File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward,
+  File, Download, MoreHorizontal, Copy, ClipboardPaste, Link2, Megaphone, Forward, Reply,
   PhoneOutgoing, PhoneIncoming, PhoneMissed, MapPin, Phone, ExternalLink, Loader2, Sticker as StickerIcon,
 } from "lucide-react";
 import { initials, fmtTime, channelColor, channelTextColor, cn } from "@/lib/utils";
@@ -338,9 +338,10 @@ function CustomAudioPlayer({ url, out }: { url: string; out: boolean }) {
 }
 
 /* ── Message "..." menu (Copy / Copy to composer / Copy link) ─ */
-function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }: {
+function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward, onReply }: {
   out: boolean; text?: string; link?: string;
   onCopyText?: (t: string) => void; onUseInComposer?: (t: string) => void; onForward?: (t: string) => void;
+  onReply?: () => void;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -388,6 +389,7 @@ function MessageMenu({ out, text, link, onCopyText, onUseInComposer, onForward }
               transform: pos.flipUp ? "translateY(-100%)" : undefined,
             }}
           >
+            {onReply && <Item icon={Reply} label={t("inbox.reply")} onClick={onReply} />}
             {text && <Item icon={Copy} label={t("inbox.copyMessage")} onClick={() => onCopyText?.(text)} />}
             {text && <Item icon={ClipboardPaste} label={t("inbox.copyToMessageTextBox")} onClick={() => onUseInComposer?.(text)} />}
             {text && onForward && <Item icon={Forward} label={t("inbox.forward")} onClick={() => onForward(text)} />}
@@ -410,9 +412,10 @@ interface MessageBubbleProps {
   onCopyText?: (t: string) => void;
   onUseInComposer?: (t: string) => void;
   onForward?: (t: string) => void;
+  onReply?: (m: Message) => void;
 }
 
-const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPreviewMedia, conversationId, onCopyText, onUseInComposer, onForward }: MessageBubbleProps) {
+const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPreviewMedia, conversationId, onCopyText, onUseInComposer, onForward, onReply }: MessageBubbleProps) {
   const { t } = useI18n();
   const msgLink = conversationId && typeof window !== "undefined" ? `${window.location.origin}/inbox?c=${conversationId}` : undefined;
   const out = m.direction === "outbound";
@@ -488,7 +491,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
   return (
     <div className={cn("group flex items-start gap-1", out ? "justify-end" : "justify-start")}>
 
-      {out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
+      {out && (m.body || msgLink || onReply) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} onReply={onReply ? () => onReply(m) : undefined} />}
       <div className={cn(hasReferral || firstUrl ? "max-w-[min(340px,85%)]" : "max-w-[66%]", "flex flex-col", out ? "items-end" : "items-start")}>
         {/* Sender label: only on the first of a group, and only for outbound (1:1
             inbound is always the contact, so the name there is just noise). */}
@@ -510,6 +513,20 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
             (isImage || isVideo) && !m.body && !isSticker ? "" : "",
           )}
         >
+          {/* ── Quoted reply (WhatsApp-style): the message this one replies to ── */}
+          {m.metadata?.reply_to && (
+            <div className={cn(
+              "m-1 mb-0 rounded-md border-l-[3px] px-2 py-1 text-left",
+              darkBub ? "bg-white/10 border-white/60" : "bg-black/[0.04] border-primary/60",
+            )}>
+              <p className={cn("text-[11px] font-bold leading-none mb-0.5", darkBub ? "text-white/90" : "text-primary-text")}>
+                {m.metadata.reply_to.sender_type === "contact" ? (active.contact_name || t("broadcasts.contact")) : m.metadata.reply_to.sender_type === "bot" ? "Simpuler" : t("dashboard.you")}
+              </p>
+              <p className={cn("text-[12px] leading-snug line-clamp-2", darkBub ? "text-white/70" : "text-muted-foreground")}>
+                {m.metadata.reply_to.preview || t(`components.${m.metadata.reply_to.type}`)}
+              </p>
+            </div>
+          )}
           {/* ── CTWA ad referral card (image + headline + body + link) ── */}
           {hasReferral && (
             <a
@@ -743,7 +760,7 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
           </div>
         )}
       </div>
-      {!out && (m.body || msgLink) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} />}
+      {!out && (m.body || msgLink || onReply) && <MessageMenu out={out} text={m.body ?? undefined} link={msgLink} onCopyText={onCopyText} onUseInComposer={onUseInComposer} onForward={onForward} onReply={onReply ? () => onReply(m) : undefined} />}
     </div>
   );
 });

@@ -10,6 +10,7 @@ import '../../../../core/i18n/i18n.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../domain/entities/lead_lookups.dart';
+import '../../domain/entities/message.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../controllers/chat_actions_providers.dart';
 import '../controllers/chat_providers.dart';
@@ -27,6 +28,8 @@ class MessageComposer extends ConsumerStatefulWidget {
     this.onAttach,
     this.onCamera,
     this.onSendVoice,
+    this.replyTarget,
+    this.onCancelReply,
   });
 
   final String conversationId;
@@ -36,6 +39,10 @@ class MessageComposer extends ConsumerStatefulWidget {
 
   /// Called with the recorded voice-note file path when sent.
   final void Function(String path)? onSendVoice;
+
+  /// WhatsApp-style quote-reply: the message being replied to (shows a chip), or null.
+  final Message? replyTarget;
+  final VoidCallback? onCancelReply;
 
   @override
   ConsumerState<MessageComposer> createState() => _MessageComposerState();
@@ -148,6 +155,63 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   /// Dismissible OG card above the input while a URL sits in the draft.
+  /// WhatsApp-style reply chip: the message being replied to, with a cancel.
+  Widget _replyBar(ThemeData theme) {
+    final m = widget.replyTarget!;
+    final label = m.senderType == MessageSenderType.bot
+        ? 'Simpuler'.tr(context)
+        : m.direction == MessageDirection.inbound
+            ? 'Contact'.tr(context)
+            : 'You'.tr(context);
+    final preview = m.body.trim().isNotEmpty
+        ? m.body.trim()
+        : switch (m.type) {
+            MessageType.image => '📷 Photo',
+            MessageType.audio => '🎤 Audio',
+            MessageType.video => '🎥 Video',
+            MessageType.document => '📄 Document',
+            MessageType.location => '📍 Location',
+            MessageType.sticker => '💟 Sticker',
+            _ => '',
+          };
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 34,
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(3)),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                Text(preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 20),
+            color: AppColors.textSecondary,
+            visualDensity: VisualDensity.compact,
+            onPressed: widget.onCancelReply,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _linkPreviewBar(ThemeData theme) {
     final d = _lpData!;
     final title = (d['title'] as String?) ?? '';
@@ -252,6 +316,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                 onPick: _applyQuickReply,
               ),
             if (_lpData != null && !_voice.recording) _linkPreviewBar(theme),
+            if (widget.replyTarget != null && !_voice.recording) _replyBar(theme),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               child: _voice.recording ? _recordingBar() : _inputBar(),

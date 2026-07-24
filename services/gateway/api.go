@@ -651,17 +651,46 @@ func (s *server) standDownBot(ctx context.Context, orgID, userID, convID string)
 	}
 }
 
+// replyPreview is the short quoted-message text shown in a reply bubble/composer.
+// Rune-safe so a multibyte body is never split mid-character.
+func replyPreview(msgType, body string) string {
+	if body != "" {
+		rs := []rune(body)
+		if len(rs) > 120 {
+			return string(rs[:120]) + "…"
+		}
+		return body
+	}
+	switch msgType {
+	case "image":
+		return "📷 Photo"
+	case "audio":
+		return "🎤 Audio"
+	case "video":
+		return "🎥 Video"
+	case "document":
+		return "📄 Document"
+	case "location":
+		return "📍 Location"
+	case "sticker":
+		return "💟 Sticker"
+	default:
+		return ""
+	}
+}
+
 func (s *server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	a, _ := authFrom(r.Context())
 	convID := r.PathValue("id")
 	var body struct {
-		Body      string  `json:"body"`
-		Type      string  `json:"type"`
-		MediaURL  string  `json:"media_url"`
-		Latitude  float64 `json:"latitude"`
-		Longitude float64 `json:"longitude"`
-		Name      string  `json:"name"`
-		Address   string  `json:"address"`
+		Body             string  `json:"body"`
+		Type             string  `json:"type"`
+		MediaURL         string  `json:"media_url"`
+		Latitude         float64 `json:"latitude"`
+		Longitude        float64 `json:"longitude"`
+		Name             string  `json:"name"`
+		Address          string  `json:"address"`
+		ReplyToMessageID string  `json:"reply_to_message_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
@@ -681,17 +710,40 @@ func (s *server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	if !s.guardConversation(w, r, convID) {
 		return
 	}
+	// Quote-reply: resolve the message being replied to (in this conversation) into
+	// the wamid (for WhatsApp `context`) + a snapshot (for our metadata.reply_to).
+	// Best-effort: an unknown id just sends a normal message.
+	var replyExt string
+	var replySnap *events.ReplyToSnapshot
+	if body.ReplyToMessageID != "" {
+		var extID, senderType, mType, mBody string
+		if err := s.pool.QueryRow(r.Context(),
+			`SELECT COALESCE(external_id,''), sender_type, type, COALESCE(body,'')
+			   FROM messages WHERE id = $1 AND conversation_id = $2`,
+			body.ReplyToMessageID, convID).Scan(&extID, &senderType, &mType, &mBody); err == nil {
+			replyExt = extID
+			replySnap = &events.ReplyToSnapshot{
+				MessageID:  body.ReplyToMessageID,
+				ExternalID: extID,
+				Preview:    replyPreview(mType, mBody),
+				SenderType: senderType,
+				Type:       mType,
+			}
+		}
+	}
 	err := s.bus.Publish(events.SubjectMessageOutbound, a.OrgID, events.MessageOutbound{
-		ConversationID:  convID,
-		SenderType:      "agent",
-		SenderID:        a.UserID,
-		Type:            msgType,
-		Body:            body.Body,
-		MediaURL:        body.MediaURL,
-		Latitude:        body.Latitude,
-		Longitude:       body.Longitude,
-		LocationName:    body.Name,
-		LocationAddress: body.Address,
+		ConversationID:    convID,
+		SenderType:        "agent",
+		SenderID:          a.UserID,
+		Type:              msgType,
+		Body:              body.Body,
+		MediaURL:          body.MediaURL,
+		Latitude:          body.Latitude,
+		Longitude:         body.Longitude,
+		LocationName:      body.Name,
+		LocationAddress:   body.Address,
+		ReplyToExternalID: replyExt,
+		ReplyTo:           replySnap,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

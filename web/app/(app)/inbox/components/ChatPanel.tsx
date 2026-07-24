@@ -200,6 +200,9 @@ export interface ChatPanelProps {
   onUnassign?: () => void;
   onSnooze?: (untilISO: string) => void;
   onForward?: (text: string) => void;
+  onReply?: (m: Message) => void;          // WhatsApp-style quote-reply
+  replyTarget?: Message | null;            // the message being replied to
+  onCancelReply?: () => void;              // clear the reply target
   uploadProgress?: number | null; // 0-100 while an attachment uploads
   onAddNote?: (body: string) => Promise<void>; // post an internal note (AI Smart Summary -> Confirm)
   className?: string; // parent-controlled responsive visibility (mobile single-pane)
@@ -215,6 +218,7 @@ export default function ChatPanel({
   draft, setDraft, tab, setTab, quickReplies,
   pendingFiles, pendingPreviews, fileRef, onFile, cancelSendFile, removePendingFile,
   busy, onSubmit, onSendVoice, showDetails, onToggleDetails, notify, showAgent, onForward,
+  onReply, replyTarget, onCancelReply,
   agents, canAssign, onReassign, onUnassign, onSnooze,
   uploadProgress, onAddNote, className, onBack, aiThinking, onToggleBot,
 }: ChatPanelProps) {
@@ -635,6 +639,7 @@ export default function ChatPanel({
                         onCopyText={onCopyText}
                         onUseInComposer={(t) => setDraft(t)}
                         onForward={onForward}
+                        onReply={onReply}
                       />
                     );
                   })();
@@ -674,6 +679,7 @@ export default function ChatPanel({
               fileRef={fileRef} onFile={onFile} cancelSendFile={cancelSendFile}
               removePendingFile={removePendingFile}
               busy={busy} onSubmit={onSubmit} onSendVoice={onSendVoice} notify={notify}
+              replyTarget={replyTarget} onCancelReply={onCancelReply}
               windowExpired={active?.channel === "whatsapp" && !!active?.last_message_at && (Date.now() - new Date(active.last_message_at).getTime() > 24 * 60 * 60 * 1000)}
               phone={active?.contact_phone}
               conversationId={active?.id}

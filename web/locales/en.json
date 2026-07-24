@@ -751,7 +751,10 @@
     "th": "Th",
     "tu": "Tu",
     "we": "We",
-    "yesterday": "Yesterday"
+    "yesterday": "Yesterday",
+    "image": "Photo",
+    "audio": "Voice message",
+    "text": "Message"
   },
   "contacts": {
     "searchNameOrPhone": "Search name or phone",
@@ -1063,7 +1066,8 @@
     "allocated": "Allocated",
     "remaining": "Remaining",
     "totalCredits": "Total credits",
-    "repliesThisMonth": "Replies this month"
+    "repliesThisMonth": "Replies this month",
+    "you": "You"
   },
   "delete-account": {
     "yourAccountAndDataWill": ". Your account and data will be deleted within 30 days. You'll receive a confirmation email once the process is complete.",
@@ -1317,7 +1321,8 @@
     "stOpen": "open",
     "stSnoozed": "snoozed",
     "stClosed": "closed",
-    "transcript": "Transcript"
+    "transcript": "Transcript",
+    "reply": "Reply"
   },
   "inbox.noCampaign": "No campaign",
   "inbox.noCampaigns": "No campaigns",

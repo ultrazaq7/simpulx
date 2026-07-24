@@ -128,6 +128,15 @@ export interface MessageMetadata {
   contacts?: { name: string; phone?: string; org?: string }[];
   // Shared pinned location.
   location?: { latitude: number; longitude: number; name?: string; address?: string };
+  // Quote-reply: the message this one replies to (WhatsApp-style), a snapshot so
+  // the bubble renders the quote without a lookup.
+  reply_to?: {
+    message_id?: string;
+    external_id?: string;
+    preview: string;
+    sender_type: string;
+    type: string;
+  };
   raw_webhook?: unknown;
 }
 

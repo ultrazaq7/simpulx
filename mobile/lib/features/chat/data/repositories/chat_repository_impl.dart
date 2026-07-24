@@ -76,6 +76,7 @@ class ChatRepositoryImpl implements ChatRepository {
     required String body,
     String type = 'text',
     String? mediaUrl,
+    String? replyToMessageId,
   }) async {
     try {
       await _remote.sendMessage(
@@ -83,6 +84,7 @@ class ChatRepositoryImpl implements ChatRepository {
         body: body,
         type: type,
         mediaUrl: mediaUrl,
+        replyToMessageId: replyToMessageId,
       );
       return const Result.ok(null);
     } catch (e) {

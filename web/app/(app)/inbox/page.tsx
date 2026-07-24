@@ -54,6 +54,8 @@ export default function InboxPage() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [forwardText, setForwardText] = useState<string | null>(null);
+  // The message the agent is replying to (WhatsApp-style quote), or null.
+  const [replyTarget, setReplyTarget] = useState<Message | null>(null);
 
   // --- Left panel state (multi-select filter model) ---
   const [query, setQuery] = useState("");
@@ -490,7 +492,7 @@ export default function InboxPage() {
     }
     setBusy(true);
     try {
-      await api.sendMessage(activeId, draft.trim()); setDraft("");
+      await api.sendMessage(activeId, draft.trim(), replyTarget?.id); setDraft(""); setReplyTarget(null);
       queryClient.invalidateQueries({ queryKey: ["messages", activeId] }); loadConvs();
     } catch { notify(t("contacts.failedToSend"), "error"); }
     finally { setBusy(false); }
@@ -679,6 +681,9 @@ export default function InboxPage() {
           onUnassign={() => doAction(() => api.unassign(active!.id), "Conversation unassigned")}
           onSnooze={(until) => doAction(() => api.snooze(active!.id, until), "Conversation snoozed")}
           onForward={(t) => setForwardText(t)}
+          onReply={(m) => { setReplyTarget(m); setTab(0); }}
+          replyTarget={replyTarget}
+          onCancelReply={() => setReplyTarget(null)}
           uploadProgress={uploadProgress}
           onAddNote={async (body) => {
             if (!activeId) return;

@@ -83,6 +83,11 @@ class Message extends Equatable {
   Map<String, dynamic>? get location =>
       metadata?['location'] is Map ? Map<String, dynamic>.from(metadata!['location'] as Map) : null;
 
+  /// Quote-reply: a snapshot of the message this one replies to (preview, sender,
+  /// type), so the bubble renders the quote WhatsApp-style without a lookup.
+  Map<String, dynamic>? get replyTo =>
+      metadata?['reply_to'] is Map ? Map<String, dynamic>.from(metadata!['reply_to'] as Map) : null;
+
   /// True for an optimistic bubble not yet confirmed by `message.persisted`.
   final bool pending;
 
