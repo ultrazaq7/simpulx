@@ -310,18 +310,6 @@ const Map<String, String> kStringsId = {
   'Passwords do not match': 'Kata sandi tidak cocok',
   'PDF Document': 'Dokumen PDF',
   'Performance alerts': 'Peringatan performa',
-  'Send test notification': 'Kirim notifikasi tes',
-  'Check that push works on this phone':
-      'Cek notifikasi jalan atau nggak di HP ini',
-  'This device could not get a push token. Check that notifications are allowed for Simpulx.':
-      'HP ini gagal dapat token push. Cek izin notifikasi Simpulx di pengaturan HP.',
-  'No device is registered for push on this account.':
-      'Belum ada perangkat yang terdaftar buat notifikasi di akun ini.',
-  'Could not send the test notification.': 'Gagal mengirim notifikasi tes.',
-  'Test notification sent to this device.':
-      'Notifikasi tes sudah dikirim ke perangkat ini.',
-  'If nothing appears, notifications are blocked on this phone.':
-      'Kalau nggak muncul, notifikasi Simpulx diblokir di HP ini.',
   'Phone': 'Telepon',
   'Phone (E.164, e.g. 628123...)': 'Telepon (E.164, mis. 628123...)',
   'Photo': 'Foto',

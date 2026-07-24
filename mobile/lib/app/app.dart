@@ -289,9 +289,15 @@ class _SimpulxAppState extends ConsumerState<SimpulxApp>
     final deviceId = await ref.read(secureStoreProvider).deviceId();
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
-        final token = await push.getToken();
+        // Retries throw the cached registration away first. Firebase persists a
+        // FAILED registration on the device, so anything that blocked it once
+        // (a wrong API-key restriction, no network on first run) keeps the phone
+        // silent long after the cause is fixed - re-asking for the same broken
+        // cache would never recover. Deleting forces a genuinely new one.
+        final token = await push.getToken(force: attempt > 0);
         if (token == null || token.isEmpty) {
-          debugPrint('[Push] no FCM token yet (attempt ${attempt + 1})');
+          debugPrint('[Push] no FCM token yet (attempt ${attempt + 1}): '
+              '${push.lastTokenError ?? "no error reported"}');
         } else {
           await repo.registerPushToken(
               token: token, platform: push.platform, deviceId: deviceId);

@@ -131,11 +131,30 @@ class PushService {
     }
   }
 
-  Future<String?> getToken() async {
+  /// Why the last [getToken] failed, kept so the failure can be shown to the
+  /// user instead of vanishing into a debug log they will never read. A token
+  /// this device never obtained is invisible from the server too, so without
+  /// this the whole failure is unattributable.
+  String? lastTokenError;
+
+  /// [force] throws away the cached registration and asks for a brand new one.
+  /// Firebase caches a failed registration locally, so once something outside
+  /// the app blocked it (a wrong API-key restriction, no network at first run)
+  /// the device can keep returning nothing long after the cause is fixed. The
+  /// only way back without clearing app data is to delete and re-register.
+  Future<String?> getToken({bool force = false}) async {
     try {
+      if (force) {
+        try {
+          await _fcm.deleteToken();
+        } catch (_) {/* nothing cached to delete */}
+        _token = null;
+      }
       _token = await _fcm.getToken();
+      lastTokenError = null;
       debugPrint('[PushService] FCM Token: ${_token?.substring(0, 20)}...');
     } catch (e) {
+      lastTokenError = e.toString();
       debugPrint('[PushService] getToken error: $e');
       // iOS without an APNS token (e.g. simulator) returns null - non-fatal.
     }
