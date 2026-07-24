@@ -60,8 +60,29 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
   bool _aiThinking = false;
   // The message the agent is replying to (WhatsApp-style quote), or null.
   Message? _replyTarget;
+  // Tap a quoted reply -> scroll to the original message and flash it. Per-message
+  // keys let Scrollable.ensureVisible land on the exact bubble.
+  final Map<String, GlobalKey> _msgKeys = {};
+  String? _flashId;
+  Timer? _flashTimer;
   StreamSubscription<RealtimeEvent>? _aiSub;
   Timer? _aiTimer;
+
+  /// Scroll to and briefly flash the quoted message when its preview is tapped.
+  void _scrollToMessage(String id) {
+    final ctx = _msgKeys[id]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx,
+          alignment: 0.35,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut);
+    }
+    setState(() => _flashId = id);
+    _flashTimer?.cancel();
+    _flashTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _flashId = null);
+    });
+  }
 
   /// Look up this conversation from the live inbox list (used when opened
   /// without a route `extra`, e.g. from a push notification or contact Chat).
@@ -101,6 +122,7 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
     WidgetsBinding.instance.removeObserver(this);
     _aiSub?.cancel();
     _aiTimer?.cancel();
+    _flashTimer?.cancel();
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();
@@ -473,6 +495,9 @@ class _ChatThreadPageState extends ConsumerState<ChatThreadPage>
                       messages: s.messages,
                       loadingMore: s.loadingMore,
                       onReply: (m) => setState(() => _replyTarget = m),
+                      onQuoteTap: _scrollToMessage,
+                      msgKeys: _msgKeys,
+                      flashId: _flashId,
                     ),
                     Positioned(
                       right: 12,
@@ -616,12 +641,18 @@ class _MessageList extends StatelessWidget {
     required this.messages,
     required this.loadingMore,
     required this.onReply,
+    required this.onQuoteTap,
+    required this.msgKeys,
+    required this.flashId,
   });
 
   final ScrollController scroll;
   final List<Message> messages;
   final bool loadingMore;
   final void Function(Message) onReply;
+  final void Function(String) onQuoteTap;
+  final Map<String, GlobalKey> msgKeys;
+  final String? flashId;
 
   @override
   Widget build(BuildContext context) {
@@ -646,10 +677,18 @@ class _MessageList extends StatelessWidget {
         final message = messages[i];
         final showDay = i == 0 ||
             !_sameDay(messages[i - 1].createdAt, message.createdAt);
+        final key = msgKeys.putIfAbsent(message.id, () => GlobalKey());
         return Column(
+          key: key,
           children: [
             if (showDay) _DaySeparator(date: message.createdAt),
-            MessageBubble(message: message, allMessages: messages, onReply: onReply),
+            MessageBubble(
+              message: message,
+              allMessages: messages,
+              onReply: onReply,
+              onQuoteTap: onQuoteTap,
+              flash: flashId == message.id,
+            ),
           ],
         );
       },

@@ -413,9 +413,11 @@ interface MessageBubbleProps {
   onUseInComposer?: (t: string) => void;
   onForward?: (t: string) => void;
   onReply?: (m: Message) => void;
+  onQuoteTap?: (messageId: string) => void; // tap the quoted preview -> scroll to original
+  flash?: boolean;                           // briefly highlight (scroll-to target)
 }
 
-const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPreviewMedia, conversationId, onCopyText, onUseInComposer, onForward, onReply }: MessageBubbleProps) {
+const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPreviewMedia, conversationId, onCopyText, onUseInComposer, onForward, onReply, onQuoteTap, flash }: MessageBubbleProps) {
   const { t } = useI18n();
   const msgLink = conversationId && typeof window !== "undefined" ? `${window.location.origin}/inbox?c=${conversationId}` : undefined;
   const out = m.direction === "outbound";
@@ -511,13 +513,19 @@ const MessageBubble = memo(function MessageBubble({ m, active, grouped, onPrevie
               : "bg-card text-foreground border border-border rounded-bl-[4px]"),
             // No padding when media-only (image/video fill the bubble)
             (isImage || isVideo) && !m.body && !isSticker ? "" : "",
+            // Flash when this bubble is the scroll-to target of a tapped quote.
+            "transition-shadow duration-500",
+            flash ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-background" : "",
           )}
         >
           {/* ── Quoted reply (WhatsApp-style): the message this one replies to ── */}
           {m.metadata?.reply_to && (
-            <div className={cn(
+            <div
+              onClick={() => { const id = m.metadata?.reply_to?.message_id; if (id && onQuoteTap) onQuoteTap(id); }}
+              className={cn(
               "m-1 mb-0 rounded-md border-l-[3px] px-2 py-1 text-left",
-              darkBub ? "bg-white/10 border-white/60" : "bg-black/[0.04] border-primary/60",
+              m.metadata.reply_to.message_id && onQuoteTap ? "cursor-pointer" : "",
+              darkBub ? "bg-white/10 border-white/60 hover:bg-white/[0.16]" : "bg-black/[0.04] border-primary/60 hover:bg-black/[0.07]",
             )}>
               <p className={cn("text-[11px] font-bold leading-none mb-0.5", darkBub ? "text-white/90" : "text-primary-text")}>
                 {m.metadata.reply_to.sender_type === "contact" ? (active.contact_name || t("broadcasts.contact")) : m.metadata.reply_to.sender_type === "bot" ? "Simpuler" : t("dashboard.you")}

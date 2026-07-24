@@ -1,6 +1,6 @@
 "use client";
 import { useI18n } from "@/lib/i18n";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   MessageSquare, ChevronRight, ChevronLeft, Check, Copy, X, Search,
   CheckCircle, RotateCcw, PanelRight, Lock, ChevronUp, ChevronDown,
@@ -224,6 +224,17 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const { t } = useI18n();
   const [statusOpen, setStatusOpen] = useState(false);
+  // Tap a quoted reply -> scroll to the original message and flash it briefly.
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollToMessage = useCallback((id: string) => {
+    const idx = timeline.findIndex((it) => it.kind === "msg" && it.m.id === id);
+    if (idx < 0) return; // the quoted message isn't in the loaded page (too old)
+    rowVirtualizer.scrollToIndex(idx, { align: "center" });
+    setFlashId(id);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlashId(null), 1600);
+  }, [timeline, rowVirtualizer]);
   // Esc closes these header dropdowns (topmost-first), and registering them on
   // the shared stack also makes the inbox's "Esc closes conversation" defer.
   useEscClose(statusOpen, () => setStatusOpen(false));
@@ -640,6 +651,8 @@ export default function ChatPanel({
                         onUseInComposer={(t) => setDraft(t)}
                         onForward={onForward}
                         onReply={onReply}
+                        onQuoteTap={scrollToMessage}
+                        flash={flashId === it.m.id}
                       />
                     );
                   })();

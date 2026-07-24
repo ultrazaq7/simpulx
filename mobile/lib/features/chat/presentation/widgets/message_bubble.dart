@@ -39,6 +39,8 @@ class MessageBubble extends StatelessWidget {
     required this.message,
     this.allMessages = const [],
     this.onReply,
+    this.onQuoteTap,
+    this.flash = false,
   });
 
   final Message message;
@@ -46,6 +48,10 @@ class MessageBubble extends StatelessWidget {
   final List<Message> allMessages;
   /// WhatsApp-style quote-reply: set the composer's reply target to this message.
   final void Function(Message)? onReply;
+  /// Tap the quoted preview -> scroll to the original message (by id).
+  final void Function(String)? onQuoteTap;
+  /// Briefly highlight this bubble (it is the scroll-to target of a tapped quote).
+  final bool flash;
 
   @override
   Widget build(BuildContext context) {
@@ -131,8 +137,14 @@ class MessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           // Subtle gunmetal hairline on the light Simpuler bubble (web's ai/20).
-          border: isBot
-              ? Border.all(color: simpulerColor.withValues(alpha: 0.25))
+          // A tapped quote flashes the target bubble with an amber outline + glow.
+          border: flash
+              ? Border.all(color: const Color(0xFFF5A524), width: 2)
+              : isBot
+                  ? Border.all(color: simpulerColor.withValues(alpha: 0.25))
+                  : null,
+          boxShadow: flash
+              ? [BoxShadow(color: const Color(0xFFF5A524).withValues(alpha: 0.35), blurRadius: 12, spreadRadius: 1)]
               : null,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(14),
@@ -158,7 +170,17 @@ class MessageBubble extends StatelessWidget {
                 ),
               ),
             if (message.replyTo != null)
-              _QuotedReply(reply: message.replyTo!, fg: fg, accent: simpulerColor),
+              _QuotedReply(
+                reply: message.replyTo!,
+                fg: fg,
+                accent: simpulerColor,
+                onTap: onQuoteTap == null
+                    ? null
+                    : () {
+                        final id = message.replyTo!['message_id'] as String?;
+                        if (id != null && id.isNotEmpty) onQuoteTap!(id);
+                      },
+              ),
             if (message.hasMedia)
               _MediaContent(
                 message: message,
@@ -358,10 +380,11 @@ class MessageBubble extends StatelessWidget {
 /// The quoted message shown at the top of a reply bubble (WhatsApp-style): the
 /// sender label + a short preview, with an accent rail.
 class _QuotedReply extends StatelessWidget {
-  const _QuotedReply({required this.reply, required this.fg, required this.accent});
+  const _QuotedReply({required this.reply, required this.fg, required this.accent, this.onTap});
   final Map<String, dynamic> reply;
   final Color fg;
   final Color accent;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +395,7 @@ class _QuotedReply extends StatelessWidget {
             ? 'Contact'.tr(context)
             : 'You'.tr(context);
     final preview = (reply['preview'] ?? '') as String;
-    return Container(
+    final box = Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.fromLTRB(8, 5, 8, 5),
       decoration: BoxDecoration(
@@ -396,6 +419,8 @@ class _QuotedReply extends StatelessWidget {
         ],
       ),
     );
+    if (onTap == null) return box;
+    return GestureDetector(onTap: onTap, behavior: HitTestBehavior.opaque, child: box);
   }
 }
 
