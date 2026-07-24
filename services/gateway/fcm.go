@@ -104,9 +104,15 @@ func (s *server) initFCMPush(ctx context.Context) {
 		// Get tokens. user_id comes along because the iOS badge is a PER-USER number:
 		// one multicast to everyone's tokens can't carry it (each agent has their own
 		// unread count), so we group by user and send one message per user below.
+		// ios_voip rows are APNs PushKit tokens, not FCM tokens: they exist only to
+		// ring calls. Sending a chat push to one fails, and the failure looks like an
+		// invalid token to pruneInvalidTokens, which then DELETES it - so a stream of
+		// ordinary messages could quietly take away the device's ability to ring at
+		// all. They must never enter the message push path.
 		var rows []map[string]any
 		if assignedAgentID != nil {
-			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token, user_id::text AS user_id FROM fcm_tokens WHERE user_id=$1`, *assignedAgentID)
+			rows, _ = s.queryMaps(ctx, `SELECT DISTINCT token, user_id::text AS user_id FROM fcm_tokens
+				WHERE user_id=$1 AND COALESCE(platform,'') <> 'ios_voip'`, *assignedAgentID)
 		} else {
 			// Unassigned: only notify users who can actually SEE the lead (RBAC) -
 			// admins/owners (all) + managers of the conversation's campaign/branch.
@@ -117,6 +123,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 				FROM fcm_tokens t
 				JOIN users u ON u.id = t.user_id
 				WHERE u.organization_id = $1 AND u.status = 'active'
+				  AND COALESCE(t.platform,'') <> 'ios_voip'
 				  AND (
 				    u.role IN ('admin','owner')
 				    OR (u.role = 'manager' AND (
@@ -205,7 +212,7 @@ func (s *server) initFCMPush(ctx context.Context) {
 		if err := json.Unmarshal(env.Data, &n); err != nil || n.UserID == "" {
 			return err
 		}
-		rows, _ := s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1`, n.UserID)
+		rows, _ := s.queryMaps(ctx, `SELECT DISTINCT token FROM fcm_tokens WHERE user_id=$1 AND COALESCE(platform,'') <> 'ios_voip'`, n.UserID)
 		tokens := make([]string, 0, len(rows))
 		for _, r := range rows {
 			if t, ok := r["token"].(string); ok && t != "" {
