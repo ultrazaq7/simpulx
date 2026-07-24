@@ -10,6 +10,12 @@ const nextConfig = {
   },
   // Cache the brand/static assets so the logo, favicon, and splash don't refetch
   // on every page load (they change rarely; a week keeps them fresh enough).
+  // Public sales demo: a self-contained static deck at /public/demo.html served
+  // on the clean /demo path. It carries its own <head> and styles, so it renders
+  // outside the app shell (no auth, no providers).
+  async rewrites() {
+    return [{ source: "/demo", destination: "/demo.html" }];
+  },
   async headers() {
     const oneWeek = "public, max-age=604800, stale-while-revalidate=86400";
     const assets = [
