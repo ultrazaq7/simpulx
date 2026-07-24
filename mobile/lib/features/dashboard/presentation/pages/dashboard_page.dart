@@ -278,7 +278,10 @@ class _ManagerSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
+        // Same 16 gap the agent view uses between the KPI grid and the first
+        // card below it - stacking 24 here and another 16 inside made the
+        // manager dashboard open with a visibly wider hole than the agent one.
+        const SizedBox(height: 16),
         analytics.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(16),
@@ -300,27 +303,26 @@ class _ManagerSection extends ConsumerWidget {
           ),
           data: (a) => Column(
             children: [
-              const SizedBox(height: 16),
-              // Stage Split
+              // A manager opens this to see the team first: who is carrying the
+              // pipeline, then how fast it is being answered, then the pipeline
+              // itself. Interest and stages keep the agent view's order.
+              if (a.agents.isNotEmpty) ...[
+                _LeaderboardCard(agents: a.agents, onDrill: onDrill),
+                const SizedBox(height: 12),
+              ],
+              _ResponseCard(a),
+              const SizedBox(height: 12),
+              _InterestSplitCard(a, onDrill: onDrill),
+              const SizedBox(height: 12),
               if (a.stages.isNotEmpty) ...[
                 _StageSplitCard(stages: a.stages, onDrill: onDrill),
                 const SizedBox(height: 12),
               ],
-              // Interest Funnel
-              _InterestSplitCard(a, onDrill: onDrill),
-              const SizedBox(height: 12),
-              // Response Time
-              _ResponseCard(a),
-              const SizedBox(height: 12),
               // Lost Analysis
               _LostAnalysisCard(analytics: a, onDrill: onDrill),
               if (a.lostReasons.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _LostReasonsCard(reasons: a.lostReasons, onDrill: onDrill),
-              ],
-              if (a.agents.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _LeaderboardCard(agents: a.agents, onDrill: onDrill),
               ],
             ],
           ),

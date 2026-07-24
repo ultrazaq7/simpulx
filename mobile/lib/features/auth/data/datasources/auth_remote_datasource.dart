@@ -104,6 +104,21 @@ class AuthRemoteDataSource {
     }
   }
 
+  /// POST /api/users/fcm-token/test — push a test notification to every device
+  /// registered to this account. Returns how many were sent and one entry per
+  /// device, which is what makes "I get no notifications" answerable from the
+  /// phone itself instead of the server logs.
+  Future<Map<String, dynamic>> testPush() async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '${ApiEndpoints.fcmToken}/test',
+      );
+      return res.data ?? const {};
+    } on DioException catch (e) {
+      throw ErrorMapper.fromDio(e);
+    }
+  }
+
   /// DELETE /api/users/fcm-token {token} — unregister on logout.
   Future<void> unregisterFcmToken({required String token}) async {
     try {

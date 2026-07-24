@@ -508,7 +508,7 @@ func adsAlertHTML(campaign string, alerts []alert) string {
 	note := ""
 	if !autopauseEnabled() {
 		note = `<p style="margin:18px 0 0;padding:12px 14px;background:#F3F4F6;border-radius:10px;color:#4B5563;font-size:13px;line-height:1.5">` +
-			`Auto-pause is off, so nothing was changed in Meta. The items above are what would have been paused.</p>`
+			`Auto-pause is OFF, jadi tidak ada yang diubah di Meta. Item di atas cuma ditandai, belum dipause.</p>`
 	}
 	return `<div style="margin:0;padding:24px 12px;background:#F3F4F6;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:14px">

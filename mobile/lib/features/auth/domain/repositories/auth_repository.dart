@@ -32,6 +32,10 @@ abstract class AuthRepository {
   /// Unregister this device's push token on logout so the backend stops pushing.
   Future<void> unregisterPushToken({required String token});
 
+  /// Ask the backend to push a test notification to every device registered to
+  /// this account. Returns {sent, devices[]}.
+  Future<Map<String, dynamic>> testPush();
+
   /// Request a password reset email.
   Future<Result<void>> forgotPassword(String email);
 

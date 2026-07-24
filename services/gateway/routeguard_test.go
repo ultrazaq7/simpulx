@@ -45,6 +45,7 @@ var unguardedByDesign = map[string]string{
 	"PATCH /api/users/me/presence":         "self",
 	"POST /api/users/fcm-token":            "self (own device)",
 	"DELETE /api/users/fcm-token":          "self (own device)",
+	"POST /api/users/fcm-token/test":       "self (pushes only to the caller's own tokens)",
 	"POST /api/notifications/read":         "self",
 	"PATCH /api/subscription":              "org-level; owner/admin only in UI, revisit with P6 billing",
 	"POST /api/uploads":                    "any agent must attach media to reply; scoped by org + storage key",

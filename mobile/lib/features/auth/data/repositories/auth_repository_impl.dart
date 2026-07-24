@@ -81,6 +81,9 @@ class AuthRepositoryImpl implements AuthRepository {
       _remote.unregisterFcmToken(token: token);
 
   @override
+  Future<Map<String, dynamic>> testPush() => _remote.testPush();
+
+  @override
   Future<Result<void>> forgotPassword(String email) async {
     try {
       await _remote.forgotPassword(email);

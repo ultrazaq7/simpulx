@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"net/http"
 	"strconv"
 
 	firebase "firebase.google.com/go/v4"
@@ -54,6 +55,9 @@ func (s *server) initFCMPush(ctx context.Context) {
 			if err != nil {
 				s.log.Warn("Failed to init FCM messaging client", "err", err)
 			}
+			// Share it so the "send test notification" endpoint pushes through the
+			// same client (and therefore the same credentials) as the real path.
+			s.fcm = fcmClient
 		}
 	} else {
 		s.log.Info("FCM is running in MOCK mode. No actual pushes will be sent to Google.")
@@ -409,6 +413,87 @@ func (s *server) initFCMPush(ctx context.Context) {
 	if err != nil {
 		s.log.Error("Failed to subscribe to FCM call push", "err", err)
 	}
+}
+
+// POST /api/users/fcm-token/test
+//
+// Pushes a test notification to the CALLER's own registered devices and reports
+// what happened to each one. "I get no notifications" used to be unanswerable
+// from the outside: a device can be silent because it never registered a token,
+// because its token went stale, because FCM rejected it, or because the phone
+// itself is suppressing the notification. Those look identical from the server.
+// This separates them - an empty device list means registration never landed, a
+// per-token error means delivery failed, and everything green with nothing on
+// screen points at the phone's own notification/battery settings.
+func (s *server) handleTestPush(w http.ResponseWriter, r *http.Request) {
+	a, _ := authFrom(r.Context())
+	ctx := r.Context()
+
+	rows, err := s.queryMaps(ctx,
+		`SELECT token, COALESCE(platform,'') AS platform, COALESCE(device_id,'') AS device_id, created_at
+		   FROM fcm_tokens WHERE user_id=$1 ORDER BY created_at DESC`, a.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	results := make([]map[string]any, 0, len(rows))
+	sent := 0
+	for _, row := range rows {
+		tok, _ := row["token"].(string)
+		platform, _ := row["platform"].(string)
+		res := map[string]any{
+			"platform":      platform,
+			"device_id":     row["device_id"],
+			"registered_at": row["created_at"],
+			// Never echo a whole token back to the client: it is a push credential
+			// for that device. The tail is enough to tell two devices apart.
+			"token_tail": tok[max(0, len(tok)-6):],
+		}
+		// An APNs VoIP token lives in the same table but is not an FCM token - it
+		// only ever rings calls, so pushing a message to it is meaningless.
+		if platform == "ios_voip" {
+			res["ok"] = false
+			res["error"] = "voip token, calls only"
+			results = append(results, res)
+			continue
+		}
+		if s.fcm == nil {
+			res["ok"] = false
+			res["error"] = "push is disabled on this server (mock mode)"
+			results = append(results, res)
+			continue
+		}
+		_, sendErr := s.fcm.Send(ctx, &messaging.Message{
+			Token: tok,
+			// Same shape as a real chat push, so this exercises the exact rendering
+			// path on the device instead of a special case that can't fail.
+			Data: map[string]string{
+				"title": "Simpulx",
+				"body":  "Test notification. Push is working on this device.",
+				"type":  "new_message",
+			},
+			Android: &messaging.AndroidConfig{Priority: "high"},
+			APNS:    apnsAlert("Simpulx", "Test notification. Push is working on this device.", "message", 0, ""),
+		})
+		if sendErr != nil {
+			res["ok"] = false
+			res["error"] = sendErr.Error()
+			// A token FCM no longer knows is dead weight: drop it so the device list
+			// stays honest instead of showing phantom devices forever.
+			if messaging.IsUnregistered(sendErr) || messaging.IsInvalidArgument(sendErr) {
+				_, _ = s.pool.Exec(ctx, `DELETE FROM fcm_tokens WHERE token=$1`, tok)
+				res["removed"] = true
+			}
+		} else {
+			res["ok"] = true
+			sent++
+		}
+		results = append(results, res)
+	}
+
+	s.log.Info("test push", "user", a.UserID, "devices", len(results), "sent", sent)
+	writeJSON(w, map[string]any{"devices": results, "sent": sent})
 }
 
 // pruneInvalidTokens removes FCM tokens that the server rejected as unregistered

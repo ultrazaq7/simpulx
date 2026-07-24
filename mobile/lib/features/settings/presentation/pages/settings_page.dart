@@ -7,6 +7,8 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../core/i18n/i18n.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/notifications/notification_prefs.dart';
+import '../../../../core/notifications/notification_providers.dart';
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/locale_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/session/session_controller.dart';
@@ -744,9 +746,89 @@ class _NotificationPrefsSheet extends ConsumerWidget {
             value: prefs.performance,
             onChanged: controller.setPerformance,
           ),
+          const Divider(height: 1),
+          const _TestNotificationTile(),
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+/// "Send test notification": re-registers this device, then asks the backend to
+/// push to it. Notifications failing silently is impossible to debug from the
+/// user's side, and the two causes need opposite fixes: the device never
+/// reached the server (registration), or it did and the phone is swallowing the
+/// notification (system settings / battery optimisation). This says which.
+class _TestNotificationTile extends ConsumerStatefulWidget {
+  const _TestNotificationTile();
+
+  @override
+  ConsumerState<_TestNotificationTile> createState() =>
+      _TestNotificationTileState();
+}
+
+class _TestNotificationTileState extends ConsumerState<_TestNotificationTile> {
+  bool _busy = false;
+
+  Future<void> _run() async {
+    setState(() => _busy = true);
+    // Decide the OUTCOME while awaiting, and translate it only after the mounted
+    // check below - `tr` needs a live context, which an await may have invalidated.
+    String outcome;
+    var sent = 0;
+    try {
+      // Register first: a device that never registered has nothing to push to,
+      // and re-registering is idempotent (the server keys rows by device id).
+      final push = ref.read(pushServiceProvider);
+      final deviceId = await ref.read(secureStoreProvider).deviceId();
+      final token = await push.getToken();
+      if (token != null && token.isNotEmpty) {
+        await ref.read(authRepositoryProvider).registerPushToken(
+            token: token, platform: push.platform, deviceId: deviceId);
+      }
+
+      final res = await ref.read(authRepositoryProvider).testPush();
+      sent = (res['sent'] as num?)?.toInt() ?? 0;
+      if (token == null || token.isEmpty) {
+        outcome = 'no_token';
+      } else if (sent == 0) {
+        outcome = 'no_device';
+      } else {
+        outcome = 'sent';
+      }
+    } catch (_) {
+      outcome = 'failed';
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    final message = switch (outcome) {
+      'no_token' =>
+        'This device could not get a push token. Check that notifications are allowed for Simpulx.'
+            .tr(context),
+      'no_device' =>
+        'No device is registered for push on this account.'.tr(context),
+      // The count stays outside the translated sentence: interpolating into the
+      // key would miss the lookup and fall back to English.
+      'sent' => '${'Test notification sent to this device.'.tr(context)} ($sent) '
+          '${'If nothing appears, notifications are blocked on this phone.'.tr(context)}',
+      _ => 'Could not send the test notification.'.tr(context),
+    };
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: _busy
+          ? const SizedBox(
+              width: 20, height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Icons.notifications_active_outlined),
+      title: Text('Send test notification'.tr(context)),
+      subtitle: Text('Check that push works on this phone'.tr(context)),
+      onTap: _busy ? null : _run,
     );
   }
 }

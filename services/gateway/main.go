@@ -23,6 +23,7 @@ import (
 	"time"
 	_ "time/tzdata" // embed the IANA tz database so LoadLocation works on the bare alpine image
 
+	"firebase.google.com/go/v4/messaging"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -52,6 +53,9 @@ type server struct {
 	superAdminEmail string // platform super admin (NOT a role); default admin@simpulx.com
 	httpClient      *http.Client
 	storage         *storage
+	// Set once FCM is initialised, so the self-test endpoint can push through the
+	// exact same client the real notification path uses. nil in mock mode.
+	fcm             *messaging.Client
 	log             interface {
 		Info(string, ...any)
 		Error(string, ...any)
@@ -370,6 +374,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/users/{id}", s.requireAuth(s.gate("manage_team", s.handleDeleteUser)))
 	mux.HandleFunc("POST /api/users/fcm-token", s.requireAuth(s.handleRegisterFCMToken))
 	mux.HandleFunc("DELETE /api/users/fcm-token", s.requireAuth(s.handleUnregisterFCMToken))
+	mux.HandleFunc("POST /api/users/fcm-token/test", s.requireAuth(s.handleTestPush))
 	mux.HandleFunc("GET /api/role-permissions", s.requireAuth(s.handleGetRolePermissions))
 	mux.HandleFunc("PUT /api/role-permissions", s.requireAuth(s.handleUpdateRolePermissions))
 	mux.HandleFunc("GET /api/audit-log", s.requireAuth(s.gate("menu_audit_log", s.handleListAuditLog)))
